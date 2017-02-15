@@ -125,14 +125,16 @@ DemangledType::str_storage_properties(bool match, bool is_retval) const
   // mangled name codes it correctly as P/Q/R/S, so when we're not trying to match Visual
   // Studio, it's probably better to retain the qualifier.
   if (match && (is_pointer || is_reference || is_refref) && is_retval) {
+    if (pointer_base == 1) return "__ptr64 ";
     return "";
   }
 
-  if (!is_const && !is_volatile) return "";
+  if (pointer_base == 0 && !is_const && !is_volatile) return "";
 
   std::ostringstream stream;
   if (is_const) stream << "const ";
   if (is_volatile) stream << "volatile ";
+  if (pointer_base == 1) stream << " __ptr64 ";
   return stream.str();
 }
 
@@ -544,17 +546,18 @@ DemangledType* VisualStudioDemangler::process_calling_convention(DemangledType* 
   return t;
 }
 
-DemangledType* VisualStudioDemangler::update_simple_type(DemangledType * t, std::string name)
+DemangledType*
+VisualStudioDemangler::update_simple_type(DemangledType * t, std::string name)
 {
   t->simple_type = name;
   advance_to_next_char();
   return t;
 }
 
-// Pointer base codes.  Agner Fog's Table 13.
-DemangledType* VisualStudioDemangler::get_pointer_type(DemangledType* t, bool push)
+DemangledType*
+VisualStudioDemangler::get_storage_class_modifiers(DemangledType* t)
 {
-  char c = get_next_char();
+  char c = get_current_char();
 
   // Type storage class modifiers.  These letters are currently non-overlapping with the
   // storage class and can occur zero or more times.  Technically it's probably invalid for
@@ -562,10 +565,20 @@ DemangledType* VisualStudioDemangler::get_pointer_type(DemangledType* t, bool pu
   while (c == 'E' || c == 'F' || c == 'I') {
     progress("pointer storage class modifier");
     if (c == 'E') t->pointer_base = 1; // <type> __ptr64
-    else if (c == 'F') {} // __unaligned <type>
-    else if (c == 'I') {} // <type> __restrict
+    else if (c == 'F') {} // __unaligned <type>   BUG!!! Unimplemented!
+    else if (c == 'I') {} // <type> __restrict    BUG!!! Unimplemented!
     c = get_next_char();
   }
+
+  return t;
+}
+
+// Pointer base codes.  Agner Fog's Table 13.
+DemangledType*
+VisualStudioDemangler::get_pointer_type(DemangledType* t, bool push)
+{
+  advance_to_next_char();
+  get_storage_class_modifiers(t);
 
   progress("pointer storage class");
   // Const and volatile for the thing being pointed to (or referenced).
@@ -690,6 +703,7 @@ DemangledType* VisualStudioDemangler::get_type(DemangledType* t, bool push) {
     return t;
    case 'X': return update_simple_type(t, "void");
    case 'Y': // cointerface
+    advance_to_next_char();
     // BUG unhandled!
     return t;
    case 'Z': return update_simple_type(t, "...");
@@ -1180,6 +1194,8 @@ DemangledType* VisualStudioDemangler::get_symbol_type(DemangledType* t)
 // Nearly identical to Table 12, but needs to update a function and lacks '?' introducer.
 DemangledType* VisualStudioDemangler::process_method_storage_class(DemangledType* t)
 {
+  get_storage_class_modifiers(t);
+
   char c = get_current_char();
   switch(c) {
    case 'A':

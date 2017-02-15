@@ -234,6 +234,7 @@ class VisualStudioDemangler
   DemangledType* get_symbol_type(DemangledType* t);
   DemangledType* get_function(DemangledType* t);
   DemangledType* get_storage_class(DemangledType* t);
+  DemangledType* get_storage_class_modifiers(DemangledType* t);
   DemangledType* get_real_enum_type(DemangledType* t);
   DemangledType* get_rtti(DemangledType* t);
   DemangledType* process_return_storage_class(DemangledType* t);
