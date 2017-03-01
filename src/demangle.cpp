@@ -24,10 +24,9 @@ int main(int argc, char **argv) {
   }
 
   bool failed = false;
-  DemangledType* t;
   VisualStudioDemangler vsd = VisualStudioDemangler(mangled, debug);
   try {
-    t = vsd.analyze();
+    auto t = vsd.analyze();
     //t->debug_type(true, 0, "Main");
     std::cout << mangled << " " << t->str(true) << std::endl;
   }

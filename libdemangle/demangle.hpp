@@ -48,13 +48,15 @@ enum class Distance {
 // Forward declaration of the core "type" definition.
 class DemangledType;
 
+using DemangledTypePtr = std::shared_ptr<DemangledType>;
+
 // Vectors of demangled types are used for several purposes.  Arguments to a function, the
 // terms in a fully qualified name, and a stack of names or types for numbered references.
 // While the underlying types are identical in practice, I'm going to attempt to keep them
 // separate logically in case they ever need to diverge.
-typedef std::vector<DemangledType*> FunctionArgs;
-typedef std::vector<DemangledType*> FullyQualifiedName;
-typedef std::vector<DemangledType*> ReferenceStack;
+typedef std::vector<DemangledTypePtr> FunctionArgs;
+typedef std::vector<DemangledTypePtr> FullyQualifiedName;
+typedef std::vector<DemangledTypePtr> ReferenceStack;
 
 // The classes describing the demangled results are demangler independent, but strictly
 // speaking the boolean match" flag on the str() methods is specific to the Visual Studio
@@ -66,15 +68,17 @@ typedef std::vector<DemangledType*> ReferenceStack;
 class DemangledTemplateParameter {
  public:
   // If the type pointer is NULL, then the constant value is used.
-  DemangledType *type;
+  DemangledTypePtr type;
   int64_t constant_value;
 
-  DemangledTemplateParameter(DemangledType* t);
+  DemangledTemplateParameter(DemangledTypePtr t);
   DemangledTemplateParameter(int64_t c);
   std::string str(bool match = false) const;
 };
 
-typedef std::vector<DemangledTemplateParameter*> DemangledTemplate;
+using DemangledTemplateParameterPtr = std::shared_ptr<DemangledTemplateParameter>;
+
+typedef std::vector<DemangledTemplateParameterPtr> DemangledTemplate;
 
 class DemangledType {
   // The the type a pointer, reference, refref, etc. to a function?
@@ -136,10 +140,10 @@ class DemangledType {
   int pointer_base;
 
   // The type pointed to or referenced.
-  DemangledType* inner_type;
+  DemangledTypePtr inner_type;
 
   // The real type of an enum (Usually int, and often coded assuch regardless).
-  DemangledType* enum_real_type;
+  DemangledTypePtr enum_real_type;
 
   // Simple type is currently a bit of a hodge-podge...  It contains the string representing
   // simple types (e.g. unsigned int).  But it also contains the names of name spaces, the
@@ -151,7 +155,7 @@ class DemangledType {
   FullyQualifiedName name;
 
   // I'm not sure that I've named this correctly.  Set by symbol types 6 & 7.
-  DemangledType* com_interface;
+  DemangledTypePtr com_interface;
 
   // If the class was templated, these are the parameters.
   DemangledTemplate template_parameters;
@@ -178,7 +182,7 @@ class DemangledType {
   FullyQualifiedName instance_name;
 
   // Return value type.  Applicable only to functions and class methods.
-  DemangledType* retval;
+  DemangledTypePtr retval;
 
   // Function arguments.  Applicable only to functions and class methods.
   FunctionArgs args;
@@ -192,7 +196,6 @@ class DemangledType {
   DemangledType();
   std::string str(bool match = false, bool is_retval = false) const;
   void debug_type(bool match = false, size_t indent = 0, std::string label = "") const;
-
 };
 
 // An alias to make it easier to construct namespace types.
@@ -212,8 +215,8 @@ class VisualStudioDemangler
   std::string error;
 
   // These are pointers because we need to swap them out when we enter and leave templates.
-  ReferenceStack* name_stack;
-  ReferenceStack* type_stack;
+  ReferenceStack name_stack;
+  ReferenceStack type_stack;
 
   char get_next_char();
   char get_current_char();
@@ -223,37 +226,37 @@ class VisualStudioDemangler
   void general_error(std::string e);
 
   // Given a stack and a position character, safely resolve and return the reference.
-  DemangledType* resolve_reference(ReferenceStack* stack, char poschar);
+  DemangledTypePtr resolve_reference(ReferenceStack & stack, char poschar);
 
-  DemangledType* get_type(DemangledType* t = NULL, bool push = true);
-  DemangledType* get_pointer_type(DemangledType* t, bool push = true);
-  DemangledType* get_templated_type(DemangledType* t);
-  DemangledType* get_templated_function_arg(DemangledType* t);
-  DemangledType* get_return_type(DemangledType* t);
-  DemangledType* get_fully_qualified_name(DemangledType* t, bool push = true);
-  DemangledType* get_symbol_type(DemangledType* t);
-  DemangledType* get_function(DemangledType* t);
-  DemangledType* get_storage_class(DemangledType* t);
-  DemangledType* get_storage_class_modifiers(DemangledType* t);
-  DemangledType* get_real_enum_type(DemangledType* t);
-  DemangledType* get_rtti(DemangledType* t);
-  DemangledType* process_return_storage_class(DemangledType* t);
-  DemangledType* process_calling_convention(DemangledType* t);
-  DemangledType* process_method_storage_class(DemangledType* t);
-  DemangledType* get_special_name_code(DemangledType* t);
-  DemangledType* get_anonymous_namespace();
+  DemangledTypePtr get_type(DemangledTypePtr t = DemangledTypePtr(), bool push = true);
+  DemangledTypePtr & get_pointer_type(DemangledTypePtr & t, bool push = true);
+  DemangledTypePtr & get_templated_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_templated_function_arg(DemangledTypePtr & t);
+  DemangledTypePtr & get_return_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_fully_qualified_name(DemangledTypePtr & t, bool push = true);
+  DemangledTypePtr & get_symbol_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_function(DemangledTypePtr & t);
+  DemangledTypePtr & get_storage_class(DemangledTypePtr & t);
+  DemangledTypePtr & get_storage_class_modifiers(DemangledTypePtr & t);
+  DemangledTypePtr & get_real_enum_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_rtti(DemangledTypePtr & t);
+  DemangledTypePtr & process_return_storage_class(DemangledTypePtr & t);
+  DemangledTypePtr & process_calling_convention(DemangledTypePtr & t);
+  DemangledTypePtr & process_method_storage_class(DemangledTypePtr & t);
+  DemangledTypePtr & get_special_name_code(DemangledTypePtr & t);
+  DemangledTypePtr get_anonymous_namespace();
 
   // Get symbol always allocates a new DemangledType.
-  DemangledType* get_symbol();
+  DemangledTypePtr get_symbol();
 
   // This is a mocked up helper for basic types.   More work is needed.
-  DemangledType* update_simple_type(DemangledType * t, std::string name);
-  DemangledType* update_method(DemangledType * t, Scope scope,
-                               MethodProperty property, Distance distance);
-  DemangledType* update_member(DemangledType * t, Scope scope, MethodProperty property);
-  DemangledType* update_storage_class(DemangledType* t, Distance distance,
-                                      bool is_const, bool is_volatile,
-                                      bool is_func, bool is_based, bool is_member);
+  DemangledTypePtr & update_simple_type(DemangledTypePtr & t, const std::string & name);
+  DemangledTypePtr & update_method(DemangledTypePtr & t, Scope scope,
+                                   MethodProperty property, Distance distance);
+  DemangledTypePtr & update_member(DemangledTypePtr & t, Scope scope, MethodProperty property);
+  DemangledTypePtr & update_storage_class(DemangledTypePtr & t, Distance distance,
+                                          bool is_const, bool is_volatile,
+                                          bool is_func, bool is_based, bool is_member);
 
   std::string get_literal();
   void get_symbol_start();
@@ -261,14 +264,13 @@ class VisualStudioDemangler
 
   // Some helper functions to make debugging a little prettier.
   void progress(std::string msg);
-  void stack_debug(ReferenceStack* stack, size_t position, std::string msg);
+  void stack_debug(ReferenceStack & stack, size_t position, const std::string & msg);
 
  public:
 
   VisualStudioDemangler(const std::string mangled, bool debug = false);
-  ~VisualStudioDemangler();
 
-  DemangledType* analyze();
+  DemangledTypePtr analyze();
 };
 
 #endif // Include_Demangle_H

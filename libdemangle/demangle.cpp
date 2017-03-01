@@ -54,14 +54,14 @@ void DemangledType::debug_type(bool match, size_t indent, std::string label) con
   if (retval) retval->debug_type(match, indent + 1, "RVal");
 
   size_t i = 0;
-  for (const DemangledType* n : name) {
+  for (const auto & n : name) {
     n->debug_type(match, indent + 1, boost::str(boost::format("Name %d") % i));
     i++;
   }
 
 
   i = 0;
-  for (const DemangledTemplateParameter* p : template_parameters) {
+  for (const auto & p : template_parameters) {
     if (p->type != NULL) {
       p->type->debug_type(match, indent + 1, boost::str(boost::format("TPar %d") % i));
     }
@@ -74,7 +74,7 @@ void DemangledType::debug_type(bool match, size_t indent, std::string label) con
   }
 
   i = 0;
-  for (const DemangledType* a : args) {
+  for (const auto & a : args) {
     a->debug_type(match, indent + 1, boost::str(boost::format("FArg %d") % i));
     i++;
   }
@@ -168,8 +168,8 @@ DemangledType::str_template_parameters(bool match) const
     stream << "<";
     DemangledTemplate::const_iterator pit;
     for (pit = template_parameters.begin(); pit != template_parameters.end(); pit++) {
-      const DemangledTemplateParameter* tp = *pit;
-      if (tp == NULL) {
+      auto tp = *pit;
+      if (!tp) {
         std::cerr << "Unexpectedly NULL template parameter!" << std::endl;
       }
       else {
@@ -199,7 +199,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
 
   FullyQualifiedName::const_iterator nit;
   for (nit = the_name.begin(); nit != the_name.end(); nit++) {
-    DemangledType* ndt = *nit;
+    auto & ndt = *nit;
     // Some names have things that require extra quotations...
     if (ndt->is_embedded) {
       stream << "`";
@@ -235,7 +235,7 @@ DemangledType::str_class_name(bool match) const
     stream << "::";
     if (is_dtor) stream << "~";
     if (template_parameters.size() != 0) {
-      clsname = template_parameters[template_parameters.size() - 1]->type;
+      clsname = &*template_parameters[template_parameters.size() - 1]->type;
     }
 
     size_t name_size = clsname->name.size();
@@ -414,15 +414,13 @@ DemangledType::str(bool match, bool is_retval) const
   return stream.str();
 }
 
-DemangledTemplateParameter::DemangledTemplateParameter(DemangledType* t) {
-  type = t;
-  constant_value = 0;
-}
+DemangledTemplateParameter::DemangledTemplateParameter(DemangledTypePtr t)
+  : type(t), constant_value(0)
+{}
 
-DemangledTemplateParameter::DemangledTemplateParameter(int64_t c) {
-  type = NULL;
-  constant_value = c;
-}
+DemangledTemplateParameter::DemangledTemplateParameter(int64_t c)
+  : type(nullptr), constant_value(c)
+{}
 
 std::string DemangledTemplateParameter::str(bool match) const {
   if (type == NULL) {
@@ -435,20 +433,8 @@ std::string DemangledTemplateParameter::str(bool match) const {
 
 
 VisualStudioDemangler::VisualStudioDemangler(const std::string m, bool d)
-{
-  mangled = m;
-  debug = d;
-  offset = 0;
-  name_stack = new ReferenceStack;
-  type_stack = new ReferenceStack;
-}
-
-VisualStudioDemangler::~VisualStudioDemangler()
-{
-  // Very much incomplete! :-(
-  delete name_stack;
-  delete type_stack;
-}
+  : mangled(m), debug(d), offset(0)
+{}
 
 char VisualStudioDemangler::get_next_char()
 {
@@ -492,15 +478,16 @@ void VisualStudioDemangler::progress(std::string msg)
   }
 }
 
-void VisualStudioDemangler::stack_debug(ReferenceStack* stack, size_t position, std::string msg)
+void VisualStudioDemangler::stack_debug(
+  ReferenceStack & stack, size_t position, const std::string & msg)
 {
-  std::string address = boost::str(boost::format("%p") % stack);
+  std::string address = boost::str(boost::format("%p") % &stack);
   std::string entry;
 
   if (!debug) return;
 
-  if (stack->size() >= position + 1) {
-    entry = stack->at(position)->str();
+  if (stack.size() >= position + 1) {
+    entry = stack.at(position)->str();
   }
   else {
     entry = boost::str(boost::format("INVALID") % position);
@@ -512,14 +499,14 @@ void VisualStudioDemangler::stack_debug(ReferenceStack* stack, size_t position, 
   if (true) {
     std::cout << "The full " << msg << " stack currently contains:" << std::endl;
     size_t p = 0;
-    for (DemangledType* t : *stack) {
+    for (auto & t : stack) {
       std::cout << "  " << p << " : " << t->str() << std::endl;
       p++;
     }
   }
 }
 
-DemangledType* VisualStudioDemangler::process_calling_convention(DemangledType* t)
+DemangledTypePtr & VisualStudioDemangler::process_calling_convention(DemangledTypePtr & t)
 {
   progress("calling convention");
   char c = get_current_char();
@@ -546,16 +533,16 @@ DemangledType* VisualStudioDemangler::process_calling_convention(DemangledType* 
   return t;
 }
 
-DemangledType*
-VisualStudioDemangler::update_simple_type(DemangledType * t, std::string name)
+DemangledTypePtr &
+VisualStudioDemangler::update_simple_type(DemangledTypePtr & t, const std::string & name)
 {
   t->simple_type = name;
   advance_to_next_char();
   return t;
 }
 
-DemangledType*
-VisualStudioDemangler::get_storage_class_modifiers(DemangledType* t)
+DemangledTypePtr &
+VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
 {
   char c = get_current_char();
 
@@ -574,15 +561,15 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledType* t)
 }
 
 // Pointer base codes.  Agner Fog's Table 13.
-DemangledType*
-VisualStudioDemangler::get_pointer_type(DemangledType* t, bool push)
+DemangledTypePtr &
+VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
 {
   advance_to_next_char();
   get_storage_class_modifiers(t);
 
   progress("pointer storage class");
   // Const and volatile for the thing being pointed to (or referenced).
-  t->inner_type = new DemangledType();
+  t->inner_type = std::make_shared<DemangledType>();
   get_storage_class(t->inner_type);
 
   // Hack (like undname).
@@ -600,17 +587,16 @@ VisualStudioDemangler::get_pointer_type(DemangledType* t, bool push)
 
   // Add the type to the type stack.
   if (push) {
-    type_stack->push_back(t);
-    stack_debug(type_stack, type_stack->size()-1, "type");
+    type_stack.push_back(t);
+    stack_debug(type_stack, type_stack.size()-1, "type");
   }
   return t;
 }
 
-DemangledType* VisualStudioDemangler::get_real_enum_type(DemangledType* t) {
+DemangledTypePtr & VisualStudioDemangler::get_real_enum_type(DemangledTypePtr & t) {
   char c = get_current_char();
   progress("enum real type");
-  DemangledType* rt = new DemangledType();
-  t->enum_real_type = rt;
+  auto & rt = t->enum_real_type = std::make_shared<DemangledType>();
   switch(c) {
    case '0': update_simple_type(rt, "signed char"); break;
    case '1': update_simple_type(rt, "unsigned char"); break;
@@ -633,9 +619,9 @@ DemangledType* VisualStudioDemangler::get_real_enum_type(DemangledType* t) {
 
 // Presently, the push boolean indicates whether the conplex type should be pushed onto the
 // stack or not.  The default is true (push the value onto
-DemangledType* VisualStudioDemangler::get_type(DemangledType* t, bool push) {
-  if (t == NULL) {
-    t = new DemangledType();
+DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) {
+  if (!t) {
+    t = std::make_shared<DemangledType>();
   }
 
   char c = get_current_char();
@@ -672,24 +658,24 @@ DemangledType* VisualStudioDemangler::get_type(DemangledType* t, bool push) {
     update_simple_type(t, "union");
     get_fully_qualified_name(t);
     if (push) {
-      type_stack->push_back(t);
-      stack_debug(type_stack, type_stack->size()-1, "type");
+      type_stack.push_back(t);
+      stack_debug(type_stack, type_stack.size()-1, "type");
     }
     return t;
    case 'U':
     update_simple_type(t, "struct");
     get_fully_qualified_name(t);
     if (push) {
-      type_stack->push_back(t);
-      stack_debug(type_stack, type_stack->size()-1, "type");
+      type_stack.push_back(t);
+      stack_debug(type_stack, type_stack.size()-1, "type");
     }
     return t;
    case 'V':
     update_simple_type(t, "class");
     get_fully_qualified_name(t);
     if (push) {
-      type_stack->push_back(t);
-      stack_debug(type_stack, type_stack->size()-1, "type");
+      type_stack.push_back(t);
+      stack_debug(type_stack, type_stack.size()-1, "type");
     }
     return t;
    case 'W':
@@ -697,8 +683,8 @@ DemangledType* VisualStudioDemangler::get_type(DemangledType* t, bool push) {
     get_real_enum_type(t);
     get_fully_qualified_name(t);
     if (push) {
-      type_stack->push_back(t);
-      stack_debug(type_stack, type_stack->size()-1, "type");
+      type_stack.push_back(t);
+      stack_debug(type_stack, type_stack.size()-1, "type");
     }
     return t;
    case 'X': return update_simple_type(t, "void");
@@ -737,8 +723,8 @@ DemangledType* VisualStudioDemangler::get_type(DemangledType* t, bool push) {
     }
     // Apparently _X is a two character type, and two character types get pushed onto the stack.
     if (push) {
-      type_stack->push_back(t);
-      stack_debug(type_stack, type_stack->size()-1, "type");
+      type_stack.push_back(t);
+      stack_debug(type_stack, type_stack.size()-1, "type");
     }
     return t;
    case '?': // Documented at wikiversity as "type modifier, template parameter"
@@ -783,7 +769,7 @@ DemangledType* VisualStudioDemangler::get_type(DemangledType* t, bool push) {
 // more important) than the others in this list.  Then there can be different methods for
 // turning the enum values into strings depdening on the human readable presentation that's
 // desired.
-DemangledType* VisualStudioDemangler::get_special_name_code(DemangledType* t)
+DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr & t)
 {
   char c = get_current_char();
   progress("special name");
@@ -826,10 +812,10 @@ DemangledType* VisualStudioDemangler::get_special_name_code(DemangledType* t)
    case 'Z': t->method_name = "operator-="; break;
    case '?': {
      // I'm not certain that this code is actually begin used.  I should check once we're passing.
-     DemangledType* embedded = get_symbol();
+     auto embedded = get_symbol();
      embedded->is_embedded = true;
      if (debug) std::cout << "The fully embedded type was:" << embedded->str() << std::endl;
-     t->name.insert(t->name.begin(), embedded);
+     t->name.insert(t->name.begin(), std::move(embedded));
      return t;
    }
    case '_':
@@ -900,7 +886,7 @@ DemangledType* VisualStudioDemangler::get_special_name_code(DemangledType* t)
 }
 
 // It's still a little unclear what this returns.   Maybe a custom RTTI object?
-DemangledType* VisualStudioDemangler::get_rtti(DemangledType* t) {
+DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
   // UNDNAME sets a flag to  prevent later processing of return values?
 
   // Character advancement is confusing and ugly here...  get_special_name_code() currently
@@ -942,8 +928,8 @@ DemangledType* VisualStudioDemangler::get_rtti(DemangledType* t) {
   return t;
 }
 
-DemangledType*
-VisualStudioDemangler::update_storage_class(DemangledType* t, Distance distance,
+DemangledTypePtr &
+VisualStudioDemangler::update_storage_class(DemangledTypePtr & t, Distance distance,
                                             bool is_const, bool is_volatile,
                                             bool is_func, bool is_based, bool is_member)
 {
@@ -962,7 +948,7 @@ VisualStudioDemangler::update_storage_class(DemangledType* t, Distance distance,
 }
 
 // Storage class codes.  Agner Fog's Table 10.
-DemangledType* VisualStudioDemangler::get_storage_class(DemangledType* t) {
+DemangledTypePtr & VisualStudioDemangler::get_storage_class(DemangledTypePtr & t) {
   char c = get_current_char();
   switch(c) {
 
@@ -1044,7 +1030,7 @@ DemangledType* VisualStudioDemangler::get_storage_class(DemangledType* t) {
 
 // It looks like these two should be combined, but I'm waiting for further evidence before
 // changing all of the code.
-DemangledType* VisualStudioDemangler::get_return_type(DemangledType* t) {
+DemangledTypePtr & VisualStudioDemangler::get_return_type(DemangledTypePtr & t) {
   char c = get_current_char();
 
   // The return type of constructors and destructors are simply coded as an '@'.
@@ -1064,7 +1050,7 @@ DemangledType* VisualStudioDemangler::get_return_type(DemangledType* t) {
 
 // Storage class codes for return values.  Agner Fog's Table 12.
 // A lot of overlap with tables 10 & 15, but apparently distinct...
-DemangledType* VisualStudioDemangler::process_return_storage_class(DemangledType* t) {
+DemangledTypePtr & VisualStudioDemangler::process_return_storage_class(DemangledTypePtr & t) {
   char c = get_current_char();
 
   // If there's no question mark, we're the default storage class?
@@ -1102,8 +1088,8 @@ DemangledType* VisualStudioDemangler::process_return_storage_class(DemangledType
   return t;
 }
 
-DemangledType*
-VisualStudioDemangler::update_method(DemangledType* t, Scope scope,
+DemangledTypePtr &
+VisualStudioDemangler::update_method(DemangledTypePtr & t, Scope scope,
                                      MethodProperty prop, Distance distance)
 {
   t->symbol_type = SymbolType::ClassMethod;
@@ -1113,8 +1099,8 @@ VisualStudioDemangler::update_method(DemangledType* t, Scope scope,
   return t;
 }
 
-DemangledType*
-VisualStudioDemangler::update_member(DemangledType* t, Scope scope, MethodProperty prop)
+DemangledTypePtr &
+VisualStudioDemangler::update_member(DemangledTypePtr & t, Scope scope, MethodProperty prop)
 {
   t->symbol_type = SymbolType::StaticClassMember;
   t->scope = scope;
@@ -1124,7 +1110,7 @@ VisualStudioDemangler::update_member(DemangledType* t, Scope scope, MethodProper
 
 // Agner Fog's Table 14.
 // Could be three methods that read the same byte and return individual values.
-DemangledType* VisualStudioDemangler::get_symbol_type(DemangledType* t)
+DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
 {
   // This is the symbol type character code.
   progress("symbol type");
@@ -1192,7 +1178,7 @@ DemangledType* VisualStudioDemangler::get_symbol_type(DemangledType* t)
 
 // Storage class codes for methods.  Agner Fog's Table 15.
 // Nearly identical to Table 12, but needs to update a function and lacks '?' introducer.
-DemangledType* VisualStudioDemangler::process_method_storage_class(DemangledType* t)
+DemangledTypePtr & VisualStudioDemangler::process_method_storage_class(DemangledTypePtr & t)
 {
   get_storage_class_modifiers(t);
 
@@ -1235,12 +1221,14 @@ void VisualStudioDemangler::get_symbol_start() {
   advance_to_next_char();
 }
 
-DemangledType* VisualStudioDemangler::resolve_reference(ReferenceStack* stack, char poschar) {
+DemangledTypePtr VisualStudioDemangler::resolve_reference(
+  ReferenceStack & stack, char poschar)
+{
   size_t stack_offset = poschar - '0';
 
   bool fake = false;
-  if (stack->size() >= stack_offset + 1) {
-    DemangledType* reference = stack->at(stack_offset);
+  if (stack.size() >= stack_offset + 1) {
+    auto & reference = stack.at(stack_offset);
     if (debug) std::cout << "Reference refers to " <<  reference->str() << std::endl;
 
     // This is the "correct" thing to do.
@@ -1248,10 +1236,10 @@ DemangledType* VisualStudioDemangler::resolve_reference(ReferenceStack* stack, c
   }
 
   // Even if our position was invalid kludge something up for debugging.
-  return new Namespace(boost::str(boost::format("ref#%d") % stack_offset));
+  return std::make_shared<Namespace>(boost::str(boost::format("ref#%d") % stack_offset));
 }
 
-DemangledType* VisualStudioDemangler::get_templated_function_arg(DemangledType* t)
+DemangledTypePtr & VisualStudioDemangler::get_templated_function_arg(DemangledTypePtr & t)
 {
   // This routines handles '$' in function args.  It's unclear why they need special treatment.
   // When this method was called, the current character was the '$', so we need to advance to
@@ -1274,24 +1262,41 @@ DemangledType* VisualStudioDemangler::get_templated_function_arg(DemangledType* 
   return t;
 }
 
-DemangledType* VisualStudioDemangler::get_templated_type(DemangledType* t)
+namespace {
+// Wrapper object that saves a reference stack, replacing it with an empty one.  The reference
+// stack will be re-replaced when the save_stack object exists scope.
+struct save_stack {
+  save_stack(ReferenceStack & stack) : original(stack) {
+    swap(saved, original);
+  }
+
+  ~save_stack() {
+    swap(saved, original);
+  }
+
+  ReferenceStack saved;
+  ReferenceStack & original;
+};
+} // unnamed namespace
+
+
+DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & t)
 {
   // The current character was the '$' when this method was called.
   char c = get_next_char();
   progress("templated symbol");
-  DemangledType* templated_type = new DemangledType();
+  auto templated_type = std::make_shared<DemangledType>();
 
   // Whenever we start a new template, we start a new name stack.
-  ReferenceStack* previous_stack = name_stack;
-  name_stack = new ReferenceStack;
+  auto saved_name_stack = save_stack(name_stack);
 
-  // The name can be either a special name or a literal, but not a fully qualified name because
-  // there's no '@' after the special name code.
+  // The name can be either a special name or a literal, but not a fully qualified name
+  // because there's no '@' after the special name code.
   if (c == '?') {
     c = get_next_char();
     if (c == '$') {
       get_templated_type(templated_type);
-      name_stack->push_back(templated_type);
+      name_stack.push_back(templated_type);
     }
     else {
       get_special_name_code(templated_type);
@@ -1301,24 +1306,23 @@ DemangledType* VisualStudioDemangler::get_templated_type(DemangledType* t)
   }
   else {
     templated_type->simple_type = get_literal();
-    name_stack->push_back(new Namespace(templated_type->simple_type));
+    name_stack.emplace_back(std::make_shared<Namespace>(templated_type->simple_type));
   }
 
   // We also need a new type stack for the template parameters.
-  ReferenceStack* previous_type_stack = type_stack;
-  type_stack = new ReferenceStack;
+  auto saved_type_stack = save_stack(type_stack);
 
   size_t params = 0;
   c = get_current_char();
   while (c != '@') {
-    DemangledTemplateParameter* parameter;
+    DemangledTemplateParameterPtr parameter;
     if (get_current_char() == '$') {
       c = get_next_char();
       switch (c) {
        case '0':
         advance_to_next_char();
         progress("constant template parameter");
-        parameter = new DemangledTemplateParameter(get_number());
+        parameter = std::make_shared<DemangledTemplateParameter>(get_number());
         break;
        default:
         bad_code_msg(c, "template argument");
@@ -1326,34 +1330,27 @@ DemangledType* VisualStudioDemangler::get_templated_type(DemangledType* t)
       }
     }
     else {
-      parameter = new DemangledTemplateParameter(get_type());
+      parameter = std::make_shared<DemangledTemplateParameter>(get_type());
     }
 
-    templated_type->template_parameters.push_back(parameter);
+    templated_type->template_parameters.push_back(std::move(parameter));
     params++;
     c = get_current_char();
   }
-
-  // And then when we're done with template arguments, we put the name stack back.
-  // BUG!!! Free the type stack we're discarding!
-  type_stack = previous_type_stack;
 
   progress("end of template parameters");
   // Advance past the '@' that marked the end of the template parameters.
   advance_to_next_char();
 
-  // And then when we're done with template, we put the name stack back.
-  // BUG!!! Free the name stack we're discarding!
-  name_stack = previous_stack;
-
   // Record the templated type in the name of the current type.
-  t->name.insert(t->name.begin(), templated_type);
+  t->name.insert(t->name.begin(), std::move(templated_type));
 
   return t;
 }
 
 
-DemangledType* VisualStudioDemangler::get_fully_qualified_name(DemangledType* t, bool push)
+DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
+  DemangledTypePtr & t, bool push)
 {
   char c = get_current_char();
   size_t argno = 0;
@@ -1367,12 +1364,12 @@ DemangledType* VisualStudioDemangler::get_fully_qualified_name(DemangledType* t,
     if (c == '?') {
       c = get_next_char();
       if (c == '$') {
-        DemangledType* tt = new DemangledType();
+        auto tt = std::make_shared<DemangledType>();
         get_templated_type(tt);
         t->name.insert(t->name.begin(), tt);
         if (pushing) {
-          name_stack->push_back(tt);
-          stack_debug(name_stack, name_stack->size()-1, "name");
+          name_stack.push_back(tt);
+          stack_debug(name_stack, name_stack.size()-1, "name");
         }
       }
       else {
@@ -1393,10 +1390,10 @@ DemangledType* VisualStudioDemangler::get_fully_qualified_name(DemangledType* t,
               throw DemanglerError(error);
             }
             else {
-              DemangledType* ns = new Namespace(get_literal());
+              auto ns = std::make_shared<Namespace>(get_literal());
               ns->is_embedded = true;
               if (debug) std::cout << "Found quoted namespace: " << ns->str() << std::endl;
-              t->name.insert(t->name.begin(), ns);
+              t->name.insert(t->name.begin(), std::move(ns));
             }
           }
           else {
@@ -1405,16 +1402,15 @@ DemangledType* VisualStudioDemangler::get_fully_qualified_name(DemangledType* t,
             // has a leading zero digit, which is not required.  Thus it signals a strangely
             // handled "anonymous namespace" with a discarded unqie identifier.
             if (get_current_char() == 'A') {
-              DemangledType* ans = get_anonymous_namespace();
-              t->name.insert(t->name.begin(), ans);
+              t->name.insert(t->name.begin(), get_anonymous_namespace());
             }
             else {
               uint64_t number = get_number();
               std::string numbered_namespace = boost::str(boost::format("`%d'") % number);
               if (debug) std::cout << "Found numbered namespace: "
                                    << numbered_namespace << std::endl;
-              DemangledType* nns = new Namespace(numbered_namespace);
-              t->name.insert(t->name.begin(), nns);
+              auto nns = std::make_shared<Namespace>(numbered_namespace);
+              t->name.insert(t->name.begin(), std::move(nns));
             }
           }
         }
@@ -1426,10 +1422,10 @@ DemangledType* VisualStudioDemangler::get_fully_qualified_name(DemangledType* t,
       advance_to_next_char();
     }
     else {
-      DemangledType* ns = new Namespace(get_literal());
+      auto ns = std::make_shared<Namespace>(get_literal());
       t->name.insert(t->name.begin(), ns);
-      name_stack->push_back(ns);
-      stack_debug(name_stack, name_stack->size()-1, "name");
+      name_stack.push_back(std::move(ns));
+      stack_debug(name_stack, name_stack.size()-1, "name");
     }
     c = get_current_char();
     argno++;
@@ -1441,7 +1437,7 @@ DemangledType* VisualStudioDemangler::get_fully_qualified_name(DemangledType* t,
   return t;
 }
 
-DemangledType* VisualStudioDemangler::get_anonymous_namespace() {
+DemangledTypePtr VisualStudioDemangler::get_anonymous_namespace() {
 
   progress("anonymous namespace");
 
@@ -1482,9 +1478,9 @@ DemangledType* VisualStudioDemangler::get_anonymous_namespace() {
   // Advance past the '@' that terminated the literal.
   advance_to_next_char();
 
-  DemangledType* ans = new Namespace(literal);
+  auto ans = std::make_shared<Namespace>(literal);
   ans->is_anonymous = true;
-  return ans;
+  return std::move(ans);
 }
 
 std::string VisualStudioDemangler::get_literal() {
@@ -1582,18 +1578,17 @@ int64_t VisualStudioDemangler::get_number() {
   return num;
 }
 
-DemangledType* VisualStudioDemangler::get_function(DemangledType* t) {
+DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
   // And then the remaining codes are the same for functions and methods.
   process_calling_convention(t);
   // Return code.  It's annoying that the modifiers come first and require us to allocate it.
-  t->retval = new DemangledType();
+  t->retval = std::make_shared<DemangledType>();
   get_return_type(t->retval);
   if (debug) std::cout << "Return value was: " << t->retval->str() << std::endl;
 
 
   // Whenever we start a nex set of function arguments, we start a new type stack?
-  //ReferenceStack* previous_stack = type_stack;
-  //type_stack = new ReferenceStack;
+  //auto saved_type_stack = save_stack(type_stack);
 
   // Function arguments.
   size_t argno = 0;
@@ -1606,7 +1601,7 @@ DemangledType* VisualStudioDemangler::get_function(DemangledType* t) {
       break;
     }
     progress("function argument");
-    DemangledType* arg = get_type();
+    auto arg = get_type();
     t->args.push_back(arg);
     if (debug) std::cout << "Arg #" << argno << " was: " << arg->str() << std::endl;
     // If the first parameter is void, it's the only parameter.
@@ -1617,10 +1612,6 @@ DemangledType* VisualStudioDemangler::get_function(DemangledType* t) {
   }
 
   progress("end of function arguments");
-
-  // And then when we're done with arguments, we put the previous type stack back.
-  // BUG!!! Free the type stack we're discarding!
-  //type_stack = previous_stack;
 
   // I'm confused about how certain this 'Z' is...
   if (get_current_char() == 'Z') {
@@ -1634,10 +1625,10 @@ DemangledType* VisualStudioDemangler::get_function(DemangledType* t) {
   return t;
 }
 
-DemangledType* VisualStudioDemangler::get_symbol() {
+DemangledTypePtr VisualStudioDemangler::get_symbol() {
   get_symbol_start();
 
-  DemangledType* t = new DemangledType();
+  auto t = std::make_shared<DemangledType>();
   get_fully_qualified_name(t, false);
   progress("here");
   get_symbol_type(t);
@@ -1649,7 +1640,7 @@ DemangledType* VisualStudioDemangler::get_symbol() {
     process_method_storage_class(t);
     // The interface name is optional.
     if (get_current_char() != '@') {
-      t->com_interface = new DemangledType();
+      t->com_interface = std::make_shared<DemangledType>();
       get_fully_qualified_name(t->com_interface);
     }
     if (get_current_char() != '@') {
@@ -1684,7 +1675,7 @@ DemangledType* VisualStudioDemangler::get_symbol() {
 
 
 // Not part of the constructor because it throws.
-DemangledType* VisualStudioDemangler::analyze() {
+DemangledTypePtr VisualStudioDemangler::analyze() {
 
   char c = get_current_char();
   if (c == '_') {
