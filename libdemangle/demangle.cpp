@@ -10,6 +10,87 @@
 // str_xxx functions).  Right now it's easier fo rthem all to match though...
 #define UNUSED __attribute__((unused))
 
+// An alias to make it easier to construct namespace types.
+class Namespace : public DemangledType {
+ public:
+  Namespace(std::string n) : DemangledType() {
+    is_namespace = true; simple_type = n;
+  }
+};
+
+class VisualStudioDemangler
+{
+ private:
+  const std::string & mangled;
+  bool debug;
+  size_t offset;
+  std::string error;
+
+  // These are pointers because we need to swap them out when we enter and leave templates.
+  ReferenceStack name_stack;
+  ReferenceStack type_stack;
+
+  char get_next_char();
+  char get_current_char();
+  void advance_to_next_char();
+
+  void bad_code_msg(char c, std::string desc);
+  void general_error(std::string e);
+
+  // Given a stack and a position character, safely resolve and return the reference.
+  DemangledTypePtr resolve_reference(ReferenceStack & stack, char poschar);
+
+  DemangledTypePtr get_type(DemangledTypePtr t = DemangledTypePtr(), bool push = true);
+  DemangledTypePtr & get_pointer_type(DemangledTypePtr & t, bool push = true);
+  DemangledTypePtr & get_templated_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_templated_function_arg(DemangledTypePtr & t);
+  DemangledTypePtr & get_return_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_fully_qualified_name(DemangledTypePtr & t, bool push = true);
+  DemangledTypePtr & get_symbol_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_function(DemangledTypePtr & t);
+  DemangledTypePtr & get_storage_class(DemangledTypePtr & t);
+  DemangledTypePtr & get_storage_class_modifiers(DemangledTypePtr & t);
+  DemangledTypePtr & get_real_enum_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_rtti(DemangledTypePtr & t);
+  DemangledTypePtr & process_return_storage_class(DemangledTypePtr & t);
+  DemangledTypePtr & process_calling_convention(DemangledTypePtr & t);
+  DemangledTypePtr & process_method_storage_class(DemangledTypePtr & t);
+  DemangledTypePtr & get_special_name_code(DemangledTypePtr & t);
+  DemangledTypePtr get_anonymous_namespace();
+
+  // Get symbol always allocates a new DemangledType.
+  DemangledTypePtr get_symbol();
+
+  // This is a mocked up helper for basic types.   More work is needed.
+  DemangledTypePtr & update_simple_type(DemangledTypePtr & t, const std::string & name);
+  DemangledTypePtr & update_method(DemangledTypePtr & t, Scope scope,
+                                   MethodProperty property, Distance distance);
+  DemangledTypePtr & update_member(DemangledTypePtr & t, Scope scope, MethodProperty property);
+  DemangledTypePtr & update_storage_class(DemangledTypePtr & t, Distance distance,
+                                          bool is_const, bool is_volatile,
+                                          bool is_func, bool is_based, bool is_member);
+
+  std::string get_literal();
+  void get_symbol_start();
+  int64_t get_number();
+
+  // Some helper functions to make debugging a little prettier.
+  void progress(std::string msg);
+  void stack_debug(ReferenceStack & stack, size_t position, const std::string & msg);
+
+ public:
+
+  VisualStudioDemangler(const std::string & mangled, bool debug = false);
+
+  DemangledTypePtr analyze();
+};
+
+DemangledTypePtr visual_studio_demangle(const std::string & mangled, bool debug)
+{
+  VisualStudioDemangler demangler(mangled, debug);
+  return demangler.analyze();
+}
+
 DemangledType::DemangledType() {
   is_const = false;
   is_volatile = false;
@@ -432,7 +513,7 @@ std::string DemangledTemplateParameter::str(bool match) const {
 }
 
 
-VisualStudioDemangler::VisualStudioDemangler(const std::string m, bool d)
+VisualStudioDemangler::VisualStudioDemangler(const std::string & m, bool d)
   : mangled(m), debug(d), offset(0)
 {}
 
