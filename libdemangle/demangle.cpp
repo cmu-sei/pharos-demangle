@@ -507,7 +507,9 @@ std::string DemangledTemplateParameter::str(bool match) const {
   if (type == NULL) {
     return boost::str(boost::format("%d") % constant_value);
   }
-  else {
+  else if (pointer) {
+    return boost::str(boost::format("std::addressof(%s)") % type->str(match));
+  } else {
     return type->str(match);
   }
 }
@@ -1404,6 +1406,12 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         advance_to_next_char();
         progress("constant template parameter");
         parameter = std::make_shared<DemangledTemplateParameter>(get_number());
+        break;
+       case '1':
+        advance_to_next_char();
+        progress("constant pointer template parameter");
+        parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
+        parameter->pointer = true;
         break;
        default:
         bad_code_msg(c, "template argument");

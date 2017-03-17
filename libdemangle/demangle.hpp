@@ -71,6 +71,9 @@ class DemangledTemplateParameter {
   DemangledTypePtr type;
   int64_t constant_value;
 
+  // If pointer is true, the parameter is a constant pointer to type.
+  bool pointer = false;
+
   DemangledTemplateParameter(DemangledTypePtr t);
   DemangledTemplateParameter(int64_t c);
   std::string str(bool match = false) const;
