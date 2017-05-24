@@ -1771,8 +1771,16 @@ DemangledTypePtr VisualStudioDemangler::analyze() {
     error = "Mangled names beginning with '_' are currently not supported.";
     throw DemanglerError(error);
   }
-
-  return get_symbol();
+  else if (c == '.') {
+    advance_to_next_char();
+    // Why there's a return type for RTTI descriptor is a little unclear to me...
+    auto t = std::make_shared<DemangledType>();
+    get_return_type(t);
+    return t;
+  }
+  else {
+    return get_symbol();
+  }
 }
 
 /* Local Variables:   */
