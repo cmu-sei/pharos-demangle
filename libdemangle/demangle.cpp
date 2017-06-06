@@ -344,6 +344,92 @@ DemangledType::str_class_name(bool match) const
   return stream.str();
 }
 
+// Public API to get the method name used by the OOAnalzyer.  This should get cleaned up so
+// that it just returns the method_name member.  It's very similar to str_class_name, but lacks
+// extra '::'s in the output.
+std::string
+DemangledType::get_method_name() const
+{
+  std::ostringstream stream;
+
+  bool match = false;
+  const DemangledType* clsname = this;
+  if (is_ctor || is_dtor) {
+    if (is_dtor) stream << "~";
+    if (template_parameters.size() != 0) {
+      clsname = &*template_parameters[template_parameters.size() - 1]->type;
+    }
+
+    size_t name_size = clsname->name.size();
+    if (name_size != 0) {
+      stream << clsname->name[name_size-1]->str(match);
+    }
+    else {
+      stream << "ERRORNOCLASS";
+    }
+  }
+  else if (method_name.size() != 0) {
+    stream << method_name;
+  }
+  else {
+    size_t name_size = clsname->name.size();
+    if (name_size != 0) {
+      stream << clsname->name[name_size-1]->str(match);
+    }
+  }
+
+  return stream.str();
+}
+
+// Public API to get class name used by the OOAnalzyer.  This has sort-of turned into a 'do
+// what oosolver needs' method. :-(
+std::string
+DemangledType::get_class_name() const
+{
+  std::ostringstream stream;
+
+  bool match = false;
+
+  // This is now largely a copy of str_name_qualifiers(), so it's the third version of that
+  // function. :-( This version needs to exclude the method name when it's a non-standard name.
+  size_t name_size = name.size();
+  if (name_size != 0) {
+    size_t pos = 0;
+    FullyQualifiedName::const_iterator nit;
+    for (nit = name.begin(); nit != name.end(); nit++) {
+      auto & ndt = *nit;
+      // Some names have things that require extra quotations...
+      if (ndt->is_embedded) {
+        stream << "`";
+        std::string rendered = ndt->str(match);
+        // Some nasty whitespace kludging here.  If the last character is a space, remove it.
+        // There's almost certainly a better way to do this.  Perhaps all types ought to remove
+        // their own trailing spaces?
+        if (rendered.size() > 1 && rendered.back() == ' ') {
+          rendered = rendered.substr(0, rendered.size() - 1);
+        }
+        stream << rendered;
+        // This quote is mismatched because Cory didn't want to cause problems for Prolog.
+        stream << "`";
+      }
+      else {
+        stream << ndt->str(match);
+      }
+      pos++;
+
+      // This is very confusing. :-( Currently the method name is in the fully qualified name
+      // if it's user-supplied name, and it's in method name if it's any of the special names
+      // except for constructors and destructors.  We didn't put the name in the method_name
+      // field for contructors and destructors because we didn't know the class name yet!
+      bool has_fake_name = (method_name.size() != 0 || is_ctor || is_dtor);
+      if ((pos+1) == name_size && !has_fake_name) break;
+
+      if ((nit+1) != name.end()) stream << "::";
+    }
+  }
+
+  return stream.str();
+}
 
 std::string
 DemangledType::str_pointer_punctuation(UNUSED bool match) const
@@ -457,7 +543,7 @@ DemangledType::str(bool match, bool is_retval) const
   stream << str_name_qualifiers(name, match);
   stream << str_template_parameters(match);
 
-  // Ugly. :-( Move the space from after the storage keywords to befor the keywords.
+  // Ugly. :-( Move the space from after the storage keywords to before the keywords.
   std::string spstr = str_storage_properties(match, is_retval);
   if (spstr.size() > 0) stream << " " << spstr.substr(0, spstr.size() - 1);
 
@@ -1520,7 +1606,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
     argno++;
   }
 
-  progress("end of fully qualifed name");
+  progress("end of fully qualified name");
   // Advance past the terminating '@' character.
   advance_to_next_char();
   return t;

@@ -94,10 +94,12 @@ class DemangledType {
   std::string str_simple_type(bool match = false) const;
   std::string str_template_parameters(bool match = false) const;
   std::string str_function_arguments(bool match = false) const;
-  std::string str_name_qualifiers(const FullyQualifiedName& the_name, bool match = false) const;
   std::string str_class_name(bool match = false) const;
 
  public:
+
+  // Laziness. :-(
+  std::string str_name_qualifiers(const FullyQualifiedName& the_name, bool match = false) const;
 
   bool is_const;
   bool is_volatile;
@@ -197,6 +199,8 @@ class DemangledType {
   int64_t n4;
 
   DemangledType();
+  std::string get_class_name() const;
+  std::string get_method_name() const;
   std::string str(bool match = false, bool is_retval = false) const;
   void debug_type(bool match = false, size_t indent = 0, std::string label = "") const;
 };
