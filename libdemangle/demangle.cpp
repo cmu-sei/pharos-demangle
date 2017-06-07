@@ -918,6 +918,10 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         t->is_volatile = true;
         t->is_refref = true;
         return get_pointer_type(t, push);
+       case 'C':
+        advance_to_next_char();
+        get_storage_class(t);
+        return get_type(t, push);
        default:
         bad_code_msg(c, "extended '$$' type");
         throw DemanglerError(error);
@@ -1498,6 +1502,10 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         progress("constant pointer template parameter");
         parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
         parameter->pointer = true;
+        break;
+       case '$':
+        offset--;
+        parameter = std::make_shared<DemangledTemplateParameter>(get_type());
         break;
        default:
         bad_code_msg(c, "template argument");
