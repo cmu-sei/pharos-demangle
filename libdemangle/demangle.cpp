@@ -2,7 +2,9 @@
 #include <string>
 #include <sstream>
 #include <cstdlib>
+#include <algorithm>
 #include <boost/format.hpp>
+#include <boost/locale/encoding_utf.hpp>
 
 #include "demangle.hpp"
 
@@ -56,6 +58,7 @@ class VisualStudioDemangler
   DemangledTypePtr & process_calling_convention(DemangledTypePtr & t);
   DemangledTypePtr & process_method_storage_class(DemangledTypePtr & t);
   DemangledTypePtr & get_special_name_code(DemangledTypePtr & t);
+  DemangledTypePtr & get_string(DemangledTypePtr & t);
   DemangledTypePtr get_anonymous_namespace();
 
   // Get symbol always allocates a new DemangledType.
@@ -515,6 +518,14 @@ DemangledType::str(bool match, bool is_retval) const
       //stream << "|";
     }
 
+    return stream.str();
+  }
+
+  if (symbol_type == SymbolType::String) {
+    if (match) {
+      return simple_type;
+    }
+    stream << inner_type->str() << '[' << n1 << "] = \"" << method_name << '"';
     return stream.str();
   }
 
@@ -984,7 +995,8 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
    case 'Y': t->method_name = "operator+="; break;
    case 'Z': t->method_name = "operator-="; break;
    case '?': {
-     // I'm not certain that this code is actually begin used.  I should check once we're passing.
+     // I'm not certain that this code is actually begin used.  I should check once we're
+     // passing.
      auto embedded = get_symbol();
      embedded->is_embedded = true;
      if (debug) std::cout << "The fully embedded type was:" << embedded->str() << std::endl;
@@ -1006,7 +1018,8 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
      case '9': t->method_name = "`vcall'"; break;
      case 'A': t->method_name = "`typeof'"; break;
      case 'B': t->method_name = "`local static guard'"; break;
-     case 'C': t->method_name = "`string'"; break; // missing logic?
+     case 'C': get_string(t);
+      return t;
      case 'D': t->method_name = "`vbase destructor'"; break;
      case 'E': t->method_name = "`vector deleting destructor'"; break;
      case 'F': t->method_name = "`default constructor closure'"; break;
@@ -1055,6 +1068,86 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
   }
 
   advance_to_next_char();
+  return t;
+}
+
+DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
+  char c = get_next_char();
+  if (c != '@') {
+    bad_code_msg(c, "string constant");
+    throw DemanglerError(error);
+  }
+  c = get_next_char();
+  if (c != '_') {
+    bad_code_msg(c, "string constant");
+    throw DemanglerError(error);
+  }
+  c = get_next_char();
+  bool multibyte = false;
+  switch (c) {
+   case '0': break;
+   case '1': multibyte = true; break;
+   default:
+    bad_code_msg(c, "string constant");
+    throw DemanglerError(error);
+  }
+  advance_to_next_char();
+  auto real_len = get_number();
+  auto len = std::min(real_len, int64_t(multibyte ? 64 : 32));
+  UNUSED int64_t hash = get_number();
+  std::string result;
+  for (int64_t i = 0; i < len; ++i) {
+    char v;
+    c = get_current_char();
+    if (c == '?') {
+      c = get_next_char();
+      if (c == '$') {
+        // Hexadecimal byte
+        v = 0;
+        for (int j = 0; j < 2; ++j) {
+          c = get_next_char();
+          if (c < 'A' || c > 'P') {
+            bad_code_msg(c, "character hex digit");
+            throw DemanglerError(error);
+          }
+          v = v * 16 + (c - 'A');
+        }
+      } else if (c >= '0' && c <= '9') {
+        // Special encodings
+        static char const * special = ",/\\:. \v\n'-";
+        v = special[c - '0'];
+      } else if ((c >= 'a' && c <= 'p') || (c >= 'A' && c <= 'P')) {
+        v = c + 0x80;
+      } else {
+        bad_code_msg(c, "string special char");
+        throw DemanglerError(error);
+      }
+    } else {
+      v = c;
+    }
+    result.push_back(v);
+    advance_to_next_char();
+  }
+
+  if (multibyte) {
+    std::basic_string<char16_t> wide;
+    for (size_t i = 0; i < result.size(); i += 2) {
+      char16_t c16 = result[i] * 0x100 + result[i + 1];
+      wide.push_back(c16);
+    }
+    result = boost::locale::conv::utf_to_utf<char>(wide);
+  }
+  if (result.back() == 0) {
+    result.pop_back();
+  }
+
+  t->symbol_type = SymbolType::String;
+  t->inner_type = std::make_shared<DemangledType>();
+  t->inner_type->simple_type = multibyte ? "char16_t" : "char";
+  t->simple_type = "`string'";
+  t->n1 = real_len;
+  t->is_pointer = true;
+  t->method_name = std::move(result);
   return t;
 }
 
@@ -1814,7 +1907,9 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
   auto t = std::make_shared<DemangledType>();
   get_fully_qualified_name(t, false);
   progress("here");
-  get_symbol_type(t);
+  if (t->symbol_type == SymbolType::Unspecified) {
+    get_symbol_type(t);
+  }
 
   switch(t->symbol_type) {
    case SymbolType::GlobalThing2:
@@ -1831,6 +1926,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
       throw DemanglerError(error);
     }
     return t;
+   case SymbolType::String:
    case SymbolType::GlobalThing1:
     return t;
    case SymbolType::GlobalObject:

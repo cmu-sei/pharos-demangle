@@ -19,7 +19,8 @@ enum class SymbolType {
   GlobalFunction,
   ClassMethod,
   GlobalThing1,
-  GlobalThing2
+  GlobalThing2,
+  String
 };
 
 enum class Scope {
