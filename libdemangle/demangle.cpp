@@ -1678,7 +1678,7 @@ std::string VisualStudioDemangler::get_literal() {
     if ((c >= 'A' && c <= 'Z') || // uppercase letters
         (c >= 'a' && c <= 'z') || // lowercase letters
         (c >= '0' && c <= '9') || // digits
-        c == '_' || c == '$') {  // underscore and dollar sign
+        c == '_' || c == '$' || c == '<' || c == '>') {  // misc punctuation
       // Allowed
     }
     else {
