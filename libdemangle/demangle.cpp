@@ -540,11 +540,17 @@ DemangledType::str(bool match, bool is_retval) const
         stream << inner_type->retval->str(match, true);
         // The calling convention is formatted differently...
         stream << " (" << inner_type->calling_convention;
+        if (inner_type->is_member) {
+          stream << ' ';
+        }
       }
-      else {
+      else if (!inner_type->is_member) {
         stream << inner_type->str(match) << " ";
       }
 
+      if (inner_type->is_member) {
+        stream << str_name_qualifiers(inner_type->name, match) << "::";
+      }
       stream << str_pointer_punctuation(match);
     }
   }
@@ -752,10 +758,17 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   t->inner_type = std::make_shared<DemangledType>();
   get_storage_class(t->inner_type);
 
+  if (t->inner_type->is_member && !t->inner_type->is_based) {
+    get_fully_qualified_name(t->inner_type, push);
+  }
+
   // Hack (like undname).
   if (t->inner_type->is_func) {
     progress("function pointed to");
     get_function(t->inner_type);
+    if (t->inner_type->is_member && !t->inner_type->is_based) {
+      t->inner_type->calling_convention = "__thiscall";
+    }
   }
   else {
     progress("type pointed to");
@@ -1203,10 +1216,10 @@ VisualStudioDemangler::update_storage_class(DemangledTypePtr & t, Distance dista
   t->is_const = is_const;
   t->is_volatile = is_volatile;
   t->is_func = is_func;
+  t->is_member = is_member;
 
   // Unused currently...
   t->is_based = is_based;
-  t->is_member = is_member;
 
   // Successfully consume this character code.
   advance_to_next_char();
