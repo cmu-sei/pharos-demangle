@@ -509,7 +509,7 @@ DemangledType::str(bool match, bool is_retval) const
     stream << str_function_arguments(match);
     stream << str_storage_properties(match);
 
-    if (retval && retval->is_func_ptr()) {
+    if (retval && retval->is_func_ptr() && method_name != "operator ") {
       //stream << "|";
       stream << ")";
       // The name of the function is not present...
