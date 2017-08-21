@@ -36,8 +36,8 @@ class VisualStudioDemangler
   char get_current_char();
   void advance_to_next_char();
 
-  void bad_code_msg(char c, std::string desc);
-  void general_error(std::string e);
+  [[noreturn]] void bad_code(char c, const std::string & desc);
+  [[noreturn]] void general_error(const std::string & e);
 
   // Given a stack and a position character, safely resolve and return the reference.
   DemangledTypePtr resolve_reference(ReferenceStack & stack, char poschar);
@@ -78,7 +78,7 @@ class VisualStudioDemangler
   int64_t get_number();
 
   // Some helper functions to make debugging a little prettier.
-  void progress(std::string msg);
+  void progress(const std::string & msg);
   void stack_debug(ReferenceStack & stack, size_t position, const std::string & msg);
 
  public:
@@ -637,26 +637,24 @@ void VisualStudioDemangler::advance_to_next_char()
 char VisualStudioDemangler::get_current_char()
 {
   if (offset >= mangled.size()) {
-    error = "Attempt to read past end of mangled string.";
-    throw DemanglerError(error);
+    general_error("Attempt to read past end of mangled string.");
   }
   return mangled[offset];
 }
 
-void VisualStudioDemangler::bad_code_msg(char c, std::string desc)
+[[noreturn]] void VisualStudioDemangler::bad_code(char c, const std::string & desc)
 {
   error = boost::str(boost::format("Unrecognized %s code '%c' at offset %d") % desc % c % offset);
-  std::cerr << error << std::endl;
-}
-
-void VisualStudioDemangler::general_error(std::string e)
-{
-  error = e;
-  std::cerr << error << std::endl;
   throw DemanglerError(error);
 }
 
-void VisualStudioDemangler::progress(std::string msg)
+[[noreturn]] void VisualStudioDemangler::general_error(const std::string & e)
+{
+  error = e;
+  throw DemanglerError(error);
+}
+
+void VisualStudioDemangler::progress(const std::string & msg)
 {
   if (debug) {
     std::cout << "Parsing " << msg << " at character '" << get_current_char()
@@ -711,8 +709,7 @@ DemangledTypePtr & VisualStudioDemangler::process_calling_convention(DemangledTy
    case 'L': t->is_exported = true;  t->calling_convention = "__unknown"; break;
    case 'M': t->is_exported = false; t->calling_convention = "__clrcall"; break;
    default:
-    bad_code_msg(c, "calling convention");
-    throw DemanglerError(error);
+    bad_code(c, "calling convention");
   }
 
   advance_to_next_char();
@@ -800,8 +797,7 @@ DemangledTypePtr & VisualStudioDemangler::get_real_enum_type(DemangledTypePtr & 
    case '6': update_simple_type(rt, "long"); break;
    case '7': update_simple_type(rt, "unsigned long"); break;
    default:
-    bad_code_msg(c, "enum real type");
-    throw DemanglerError(error);
+    bad_code(c, "enum real type");
   }
 
   return t;
@@ -894,7 +890,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
    case '_': // Extended simple types.
     c = get_next_char();
     switch(c) {
-     case '$': bad_code_msg(c, "_w64 prefix"); throw DemanglerError(error);
+     case '$': bad_code(c, "_w64 prefix");
      case 'D': update_simple_type(t, "__int8"); break;
      case 'E': update_simple_type(t, "unsigned __int8"); break;
      case 'F': update_simple_type(t, "__int16"); break;
@@ -906,13 +902,12 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
      case 'L': update_simple_type(t, "__int128"); break;
      case 'M': update_simple_type(t, "unsigned __int128"); break;
      case 'N': update_simple_type(t, "bool"); break;
-     case 'O': bad_code_msg(c, "unhandled array"); throw DemanglerError(error);
+     case 'O': bad_code(c, "unhandled array");
      case 'W': update_simple_type(t, "wchar_t"); break;
-     case 'X': bad_code_msg(c, "coclass"); throw DemanglerError(error);
-     case 'Y': bad_code_msg(c, "cointerface"); throw DemanglerError(error);
+     case 'X': bad_code(c, "coclass");
+     case 'Y': bad_code(c, "cointerface");
      default:
-      bad_code_msg(c, "extended '_' type");
-      throw DemanglerError(error);
+      bad_code(c, "extended '_' type");
     }
     // Apparently _X is a two character type, and two character types get pushed onto the stack.
     if (push) {
@@ -922,8 +917,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     return t;
    case '?': // Documented at wikiversity as "type modifier, template parameter"
     c = get_next_char();
-    bad_code_msg(c, "type? thing");
-    throw DemanglerError(error);
+    bad_code(c, "type? thing");
     break;
    // Documented at wikiversity as "type modifier, template parameter"
    case '$':
@@ -947,8 +941,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         get_storage_class(t);
         return get_type(t, push);
        default:
-        bad_code_msg(c, "extended '$$' type");
-        throw DemanglerError(error);
+        bad_code(c, "extended '$$' type");
       }
     }
     // All characters after a single '$' are template parameters.
@@ -956,8 +949,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
       return get_templated_function_arg(t);
     }
    default:
-    bad_code_msg(c, "type");
-    throw DemanglerError(error);
+    bad_code(c, "type");
   }
 }
 
@@ -1067,17 +1059,14 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
        case 'I': t->method_name = "`managed vector copy constructor iterator'"; break;
        case 'J': t->method_name = "`local static thread guard'"; break;
        default:
-        bad_code_msg(c, "special name '__')");
-        throw DemanglerError(error);
+        bad_code(c, "special name '__')");
       }
      default:
-      bad_code_msg(c, "special name '_'");
-      throw DemanglerError(error);
+      bad_code(c, "special name '_'");
     }
     break;
    default:
-    bad_code_msg(c, "special name");
-    throw DemanglerError(error);
+    bad_code(c, "special name");
   }
 
   advance_to_next_char();
@@ -1087,13 +1076,11 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
 DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
   char c = get_next_char();
   if (c != '@') {
-    bad_code_msg(c, "string constant");
-    throw DemanglerError(error);
+    bad_code(c, "string constant");
   }
   c = get_next_char();
   if (c != '_') {
-    bad_code_msg(c, "string constant");
-    throw DemanglerError(error);
+    bad_code(c, "string constant");
   }
   c = get_next_char();
   bool multibyte = false;
@@ -1101,8 +1088,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
    case '0': break;
    case '1': multibyte = true; break;
    default:
-    bad_code_msg(c, "string constant");
-    throw DemanglerError(error);
+    bad_code(c, "string constant");
   }
   advance_to_next_char();
   auto real_len = get_number();
@@ -1120,8 +1106,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
         for (int j = 0; j < 2; ++j) {
           c = get_next_char();
           if (c < 'A' || c > 'P') {
-            bad_code_msg(c, "character hex digit");
-            throw DemanglerError(error);
+            bad_code(c, "character hex digit");
           }
           v = v * 16 + (c - 'A');
         }
@@ -1132,8 +1117,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
       } else if ((c >= 'a' && c <= 'p') || (c >= 'A' && c <= 'P')) {
         v = c + 0x80;
       } else {
-        bad_code_msg(c, "string special char");
-        throw DemanglerError(error);
+        bad_code(c, "string special char");
       }
     } else {
       v = c;
@@ -1200,8 +1184,7 @@ DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
     advance_to_next_char();
     t->method_name = "`RTTI Complete Object Locator'"; break;
    default:
-    bad_code_msg(c, "RTTI");
-    throw DemanglerError(error);
+    bad_code(c, "RTTI");
   }
 
   return t;
@@ -1294,13 +1277,11 @@ DemangledTypePtr & VisualStudioDemangler::get_storage_class(DemangledTypePtr & t
      case 'C': return update_storage_class(t, Distance::Near, false, false, true,  true, true);
      case 'D': return update_storage_class(t, Distance::Far,  false, false, true,  true, true);
      default:
-      bad_code_msg(c, "extended storage class");
-      throw DemanglerError(error);
+      bad_code(c, "extended storage class");
     }
     break;
    default:
-    bad_code_msg(c, "storage class");
-    throw DemanglerError(error);
+    bad_code(c, "storage class");
   }
 
   advance_to_next_char();
@@ -1359,8 +1340,7 @@ DemangledTypePtr & VisualStudioDemangler::process_return_storage_class(Demangled
     t->is_volatile = true;
     break;
    default:
-    bad_code_msg(c, "return storage class");
-    throw DemanglerError(error);
+    bad_code(c, "return storage class");
   }
 
   advance_to_next_char();
@@ -1450,8 +1430,7 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
    case 'Z': t->symbol_type = SymbolType::GlobalFunction; t->distance = Distance::Far; return t;
 
    default:
-    bad_code_msg(c, "symbol type");
-    throw DemanglerError(error);
+    bad_code(c, "symbol type");
   }
 }
 
@@ -1480,8 +1459,7 @@ DemangledTypePtr & VisualStudioDemangler::process_method_storage_class(Demangled
     t->is_volatile = true;
     break;
    default:
-    bad_code_msg(c, "method storage class");
-    throw DemanglerError(error);
+    bad_code(c, "method storage class");
   }
 
   advance_to_next_char();
@@ -1532,8 +1510,7 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_function_arg(DemangledTy
    case 'G':
    case 'Q':
    default:
-    bad_code_msg(c, "templated function arg");
-    throw DemanglerError(error);
+    bad_code(c, "templated function arg");
   }
 
   // Hack thing to consume 0, D, F, G, & Q.
@@ -1614,8 +1591,7 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         parameter = std::make_shared<DemangledTemplateParameter>(get_type());
         break;
        default:
-        bad_code_msg(c, "template argument");
-        throw DemanglerError(error);
+        bad_code(c, "template argument");
       }
     }
     else {
@@ -1675,8 +1651,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
             advance_to_next_char();
             // Yet another question mark...  This makes three in a row.
             if (get_current_char() == '?') {
-              bad_code_msg('?', "??? thing");
-              throw DemanglerError(error);
+              bad_code('?', "??? thing");
             }
             else {
               auto ns = std::make_shared<Namespace>(get_literal());
@@ -1736,13 +1711,13 @@ DemangledTypePtr VisualStudioDemangler::get_anonymous_namespace() {
   char c = get_next_char();
   size_t start_offset = offset;
   if (c != '0') {
-      error = boost::str(boost::format("Expected '0' in anonymous namespace, found '%c'.") % c);
-      throw DemanglerError(error);
+    general_error(
+      boost::str(boost::format("Expected '0' in anonymous namespace, found '%c'.") % c));
   }
   c = get_next_char();
   if (c != 'x') {
-      error = boost::str(boost::format("Expected 'x' in anonymous namespace, found '%c'.") % c);
-      throw DemanglerError(error);
+    general_error(
+      boost::str(boost::format("Expected 'x' in anonymous namespace, found '%c'.") % c));
   }
 
   size_t digits = 0;
@@ -1753,8 +1728,8 @@ DemangledTypePtr VisualStudioDemangler::get_anonymous_namespace() {
       // Allowed
     }
     else {
-      error = boost::str(boost::format("Disallowed character '%c' in literal string.") % c);
-      throw DemanglerError(error);
+      general_error(
+        boost::str(boost::format("Disallowed character '%c' in literal string.") % c));
     }
     c = get_next_char();
     digits++;
@@ -1788,8 +1763,8 @@ std::string VisualStudioDemangler::get_literal() {
       // Allowed
     }
     else {
-      error = boost::str(boost::format("Disallowed character '%c' in literal string.") % c);
-      throw DemanglerError(error);
+      general_error(
+        boost::str(boost::format("Disallowed character '%c' in literal string.") % c));
     }
     c = get_next_char();
   }
@@ -1847,20 +1822,17 @@ int64_t VisualStudioDemangler::get_number() {
   }
 
   if (c != '@') {
-    error = "Numbers must be terminated with an '@' character. ";
-    throw DemanglerError(error);
+    general_error("Numbers must be terminated with an '@' character. ");
   }
   progress("end of number");
   advance_to_next_char();
 
   if (digits_found <= 0) {
-    error = "There were too few hex digits endecoded in the number.";
-    throw DemanglerError(error);
+    general_error("There were too few hex digits endecoded in the number.");
   }
 
   if (digits_found > 8) {
-    error = "There were too many hex digits encoded in the number.";
-    throw DemanglerError(error);
+    general_error("There were too many hex digits encoded in the number.");
   }
 
   if (negative) return -num;
@@ -1908,8 +1880,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
   }
 
   //if (get_current_char() != 'Z') {
-  //  error = "Expected 'Z' to terminate function.";
-  //  throw DemanglerError(error);
+  //  general_error("Expected 'Z' to terminate function.");
   //}
   return t;
 }
@@ -1935,8 +1906,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
       get_fully_qualified_name(t->com_interface);
     }
     if (get_current_char() != '@') {
-      error = "Expected '@' at end of SymbolType6.";
-      throw DemanglerError(error);
+      general_error("Expected '@' at end of SymbolType6.");
     }
     return t;
    case SymbolType::String:
@@ -1960,8 +1930,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
    case SymbolType::GlobalFunction:
     return get_function(t);
    default:
-    error = "Unrecognized symbol type.";
-    throw DemanglerError(error);
+    general_error("Unrecognized symbol type.");
   }
 }
 
@@ -1971,7 +1940,7 @@ DemangledTypePtr VisualStudioDemangler::analyze() {
 
   char c = get_current_char();
   if (c == '_') {
-    error = "Mangled names beginning with '_' are currently not supported.";
+    general_error("Mangled names beginning with '_' are currently not supported.");
     throw DemanglerError(error);
   }
   else if (c == '.') {
