@@ -740,6 +740,20 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
     c = get_next_char();
   }
 
+  // Handle managed C++ properties
+  if (c == '$') {
+    c = get_next_char();
+    switch (c) {
+     case 'A': // __gc   BUG!!! Unimplemented!
+      break;
+     case 'B': // __pin  BUG!!! Unimplemented!
+      break;
+     default:
+      bad_code(c, "managed C++ property");
+    }
+    advance_to_next_char();
+  }
+
   return t;
 }
 
@@ -936,6 +950,9 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         t->is_volatile = true;
         t->is_refref = true;
         return get_pointer_type(t, push);
+       case 'A':
+        t->is_func = true;
+        return get_pointer_type(t, push);
        case 'C':
         advance_to_next_char();
         get_storage_class(t);
@@ -1000,8 +1017,6 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
    case 'Y': t->method_name = "operator+="; break;
    case 'Z': t->method_name = "operator-="; break;
    case '?': {
-     // I'm not certain that this code is actually begin used.  I should check once we're
-     // passing.
      auto embedded = get_symbol();
      embedded->is_embedded = true;
      if (debug) std::cout << "The fully embedded type was:" << embedded->str() << std::endl;
@@ -1642,40 +1657,24 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
         // it's not the first term it's a numbered namespace?  This seems like more evidence
         // that the parsing of the first term is definitely a different routine than the
         // namespace terms in a fully qualified name...   Perhaps some code cleanup is needed?
-        if (first) {
+        if (first || get_current_char() == '?') {
           get_special_name_code(t);
         }
         else {
-          // ?? inside a namespace is a quoted namespace...
-          if (get_current_char() == '?') {
-            advance_to_next_char();
-            // Yet another question mark...  This makes three in a row.
-            if (get_current_char() == '?') {
-              bad_code('?', "??? thing");
-            }
-            else {
-              auto ns = std::make_shared<Namespace>(get_literal());
-              ns->is_embedded = true;
-              if (debug) std::cout << "Found quoted namespace: " << ns->str() << std::endl;
-              t->name.insert(t->name.begin(), std::move(ns));
-            }
+          // Wow is this ugly.  But it looks like Microsoft really did it this way, so what
+          // else can we do?  A number that starts with 'A' would be a namespace number that
+          // has a leading zero digit, which is not required.  Thus it signals a strangely
+          // handled "anonymous namespace" with a discarded unqie identifier.
+          if (get_current_char() == 'A') {
+            t->name.insert(t->name.begin(), get_anonymous_namespace());
           }
           else {
-            // Wow is this ugly.  But it looks like Microsoft really did it this way, so what
-            // else can we do?  A number that starts with 'A' would be a namespace number that
-            // has a leading zero digit, which is not required.  Thus it signals a strangely
-            // handled "anonymous namespace" with a discarded unqie identifier.
-            if (get_current_char() == 'A') {
-              t->name.insert(t->name.begin(), get_anonymous_namespace());
-            }
-            else {
-              uint64_t number = get_number();
-              std::string numbered_namespace = boost::str(boost::format("`%d'") % number);
-              if (debug) std::cout << "Found numbered namespace: "
-                                   << numbered_namespace << std::endl;
-              auto nns = std::make_shared<Namespace>(numbered_namespace);
-              t->name.insert(t->name.begin(), std::move(nns));
-            }
+            uint64_t number = get_number();
+            std::string numbered_namespace = boost::str(boost::format("`%d'") % number);
+            if (debug) std::cout << "Found numbered namespace: "
+                                 << numbered_namespace << std::endl;
+            auto nns = std::make_shared<Namespace>(numbered_namespace);
+            t->name.insert(t->name.begin(), std::move(nns));
           }
         }
       }
@@ -1919,6 +1918,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     t->instance_name = t->name;
     t->name.clear();
     get_type(t); // Table 9
+    get_storage_class_modifiers(t);
     get_storage_class(t); // Table 10
     return t;
    case SymbolType::ClassMethod:
