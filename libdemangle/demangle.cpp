@@ -256,7 +256,9 @@ DemangledType::str_template_parameters(bool match) const
     for (pit = template_parameters.begin(); pit != template_parameters.end(); pit++) {
       auto tp = *pit;
       if (!tp) {
-        std::cerr << "Unexpectedly NULL template parameter!" << std::endl;
+        if (template_parameters.size() != 1) {
+          throw std::runtime_error("Unexpectedly NULL template parameter!");
+        }
       }
       else {
         tpstr = tp->str(match);
@@ -1633,7 +1635,12 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         parameter->pointer = true;
         break;
        case '$':
-        offset--;
+        if (get_next_char() == 'V') {
+          // Empty parameter list
+          advance_to_next_char();
+          break;
+        }
+        offset -= 2;
         parameter = std::make_shared<DemangledTemplateParameter>(get_type());
         break;
        default:
