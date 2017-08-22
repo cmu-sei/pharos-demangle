@@ -43,6 +43,7 @@ class VisualStudioDemangler
   DemangledTypePtr resolve_reference(ReferenceStack & stack, char poschar);
 
   DemangledTypePtr get_type(DemangledTypePtr t = DemangledTypePtr(), bool push = true);
+  DemangledTypePtr get_array_type(DemangledTypePtr & t, bool push = true);
   DemangledTypePtr & get_pointer_type(DemangledTypePtr & t, bool push = true);
   DemangledTypePtr & get_templated_type(DemangledTypePtr & t);
   DemangledTypePtr & get_templated_function_arg(DemangledTypePtr & t);
@@ -99,6 +100,7 @@ DemangledType::DemangledType() {
   is_volatile = false;
   is_reference = false;
   is_pointer = false;
+  is_array = false;
   is_namespace = false;
   is_func = false;
   is_embedded = false;
@@ -435,6 +437,17 @@ DemangledType::get_class_name() const
 }
 
 std::string
+DemangledType::str_array(UNUSED bool match) const
+{
+  if (!is_array) return "";
+  std::ostringstream stream;
+  for (auto dim : dimensions) {
+    stream << '[' << dim << ']';
+  }
+  return stream.str();
+}
+
+std::string
 DemangledType::str_pointer_punctuation(UNUSED bool match) const
 {
   if (is_refref) return "&&";
@@ -558,6 +571,7 @@ DemangledType::str(bool match, bool is_retval) const
   stream << str_distance(match);
   stream << str_simple_type(match);
   stream << str_name_qualifiers(name, match);
+  stream << str_array(match);
   stream << str_template_parameters(match);
 
   // Ugly. :-( Move the space from after the storage keywords to before the keywords.
@@ -817,6 +831,15 @@ DemangledTypePtr & VisualStudioDemangler::get_real_enum_type(DemangledTypePtr & 
   return t;
 }
 
+DemangledTypePtr VisualStudioDemangler::get_array_type(DemangledTypePtr & t, bool push) {
+  t->is_array = true;
+  auto num_dim = get_number();
+  for (decltype(num_dim) i = 0; i < num_dim; ++i) {
+    t->dimensions.push_back(uint64_t(get_number()));
+  }
+  return get_type(t, push);
+}
+
 // Return a demangled type, for a global variables, a return code, or a function argument.
 // This function may require a optional argument saying whether we're in function args or not.
 
@@ -891,10 +914,9 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     }
     return t;
    case 'X': return update_simple_type(t, "void");
-   case 'Y': // cointerface
+   case 'Y': // array
     advance_to_next_char();
-    // BUG unhandled!
-    return t;
+    return get_array_type(t, push);
    case 'Z': return update_simple_type(t, "...");
    case '0': case '1': case '2': case '3': case '4':
    case '5': case '6': case '7': case '8': case '9':
@@ -953,6 +975,10 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
        case 'A':
         t->is_func = true;
         return get_pointer_type(t, push);
+       case 'B':
+        // Seems to be array type in template.  Next char should be 'Y'
+        advance_to_next_char();
+        return get_type(t, push);
        case 'C':
         advance_to_next_char();
         get_storage_class(t);

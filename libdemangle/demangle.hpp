@@ -96,6 +96,7 @@ class DemangledType {
   std::string str_template_parameters(bool match = false) const;
   std::string str_function_arguments(bool match = false) const;
   std::string str_class_name(bool match = false) const;
+  std::string str_array(bool match = false) const;
 
  public:
 
@@ -106,6 +107,10 @@ class DemangledType {
   bool is_volatile;
   bool is_reference;
   bool is_pointer;
+  bool is_array;
+
+  // Array dimensions
+  std::vector<uint64_t> dimensions;
 
   // Hacky thing for complex types that can't get rendered any better than putting them inside
   // a pair of single quotes.  e.g. ?X@??Y@@9@9 demangles to "`Y'::X".  The extra quotes aren't
