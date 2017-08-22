@@ -957,6 +957,11 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         advance_to_next_char();
         get_storage_class(t);
         return get_type(t, push);
+       case 'T':
+        advance_to_next_char();
+        t->name.push_back(std::make_shared<Namespace>("std"));
+        t->name.push_back(std::make_shared<Namespace>("nullptr_t"));
+        return t;
        default:
         bad_code(c, "extended '$$' type");
       }
