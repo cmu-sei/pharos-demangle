@@ -109,8 +109,8 @@ DemangledType::DemangledType() {
   symbol_type = SymbolType::Unspecified;
   distance = Distance::Unspecified;
   pointer_base = 0;
-  inner_type = NULL;
-  com_interface = NULL;
+  inner_type = nullptr;
+  com_interface = nullptr;
 
   // Properties from function.
   scope = Scope::Unspecified;
@@ -146,7 +146,7 @@ void DemangledType::debug_type(bool match, size_t indent, std::string label) con
 
   i = 0;
   for (const auto & p : template_parameters) {
-    if (p->type != NULL) {
+    if (p->type != nullptr) {
       p->type->debug_type(match, indent + 1, boost::str(boost::format("TPar %d") % i));
     }
     else {
@@ -530,7 +530,7 @@ DemangledType::str(bool match, bool is_retval) const
   }
 
   if (is_pointer || is_reference) {
-    if (inner_type == NULL) {
+    if (inner_type == nullptr) {
       std::cerr << "Unparse error: Inner type is not set for pointer or reference!" << std::endl;
     }
     else {
@@ -591,7 +591,7 @@ DemangledType::str(bool match, bool is_retval) const
     //stream << "|";
   }
 
-  if (com_interface != NULL) {
+  if (com_interface != nullptr) {
     stream << "{for `" << com_interface->str(match) << "'}";
   }
 
@@ -607,7 +607,7 @@ DemangledTemplateParameter::DemangledTemplateParameter(int64_t c)
 {}
 
 std::string DemangledTemplateParameter::str(bool match) const {
-  if (type == NULL) {
+  if (type == nullptr) {
     return boost::str(boost::format("%d") % constant_value);
   }
   else if (pointer) {
