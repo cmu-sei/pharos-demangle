@@ -12,6 +12,9 @@
 // str_xxx functions).  Right now it's easier fo rthem all to match though...
 #define UNUSED __attribute__((unused))
 
+namespace demangle {
+namespace detail {
+
 // An alias to make it easier to construct namespace types.
 class Namespace : public DemangledType {
  public:
@@ -89,9 +92,11 @@ class VisualStudioDemangler
   DemangledTypePtr analyze();
 };
 
+} // namespace detail
+
 DemangledTypePtr visual_studio_demangle(const std::string & mangled, bool debug)
 {
-  VisualStudioDemangler demangler(mangled, debug);
+  detail::VisualStudioDemangler demangler(mangled, debug);
   return demangler.analyze();
 }
 
@@ -633,6 +638,7 @@ std::string DemangledTemplateParameter::str(bool match) const {
   }
 }
 
+namespace detail {
 
 VisualStudioDemangler::VisualStudioDemangler(const std::string & m, bool d)
   : mangled(m), debug(d), offset(0)
@@ -661,13 +667,13 @@ char VisualStudioDemangler::get_current_char()
 [[noreturn]] void VisualStudioDemangler::bad_code(char c, const std::string & desc)
 {
   error = boost::str(boost::format("Unrecognized %s code '%c' at offset %d") % desc % c % offset);
-  throw DemanglerError(error);
+  throw Error(error);
 }
 
 [[noreturn]] void VisualStudioDemangler::general_error(const std::string & e)
 {
   error = e;
-  throw DemanglerError(error);
+  throw Error(error);
 }
 
 void VisualStudioDemangler::progress(const std::string & msg)
@@ -1520,7 +1526,7 @@ void VisualStudioDemangler::get_symbol_start() {
   if (c != '?') {
     error = boost::str(boost::format("'%c' at position %d") % c % offset);
     error = "Expected '?' code at start of symbol, instead found character " + error;
-    throw DemanglerError(error);
+    throw Error(error);
   }
   progress("new symbol");
   advance_to_next_char();
@@ -1979,7 +1985,7 @@ DemangledTypePtr VisualStudioDemangler::analyze() {
   char c = get_current_char();
   if (c == '_') {
     general_error("Mangled names beginning with '_' are currently not supported.");
-    throw DemanglerError(error);
+    throw Error(error);
   }
   else if (c == '.') {
     advance_to_next_char();
@@ -1992,6 +1998,9 @@ DemangledTypePtr VisualStudioDemangler::analyze() {
     return get_symbol();
   }
 }
+
+} // namespace detail
+} // namespace demangle
 
 /* Local Variables:   */
 /* mode: c++          */

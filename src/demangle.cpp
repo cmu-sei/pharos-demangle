@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
 bool Demangler::demangle(std::string const & mangled) const
 {
   try {
-    auto t = visual_studio_demangle(mangled, debug);
+    auto t = demangle::visual_studio_demangle(mangled, debug);
     auto dem = t->str(winmatch);
     if (!nosym) {
       std::cout << mangled << " ";
@@ -118,7 +118,7 @@ bool Demangler::demangle(std::string const & mangled) const
     std::cout << dem << std::endl;
     return true;
   }
-  catch (const DemanglerError& e) {
+  catch (const demangle::Error& e) {
     std::cout << "! " <<  mangled << " " << e.what() << std::endl;
     return false;
   }

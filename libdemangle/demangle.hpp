@@ -5,8 +5,10 @@
 
 #include <string>
 
+namespace demangle {
+
 // Thrown for errors encountered while demangling names.
-class DemanglerError : public std::runtime_error {
+class Error : public std::runtime_error {
  public:
   using std::runtime_error::runtime_error;
 };
@@ -213,6 +215,8 @@ class DemangledType {
 
 // Main entry point to demangler
 DemangledTypePtr visual_studio_demangle(const std::string & mangled, bool debug = false);
+
+} // namespace demangle
 
 #endif // Include_Demangle_H
 
