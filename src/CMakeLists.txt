@@ -1,4 +1,4 @@
-find_package(Boost 1.60.0 REQUIRED COMPONENTS filesystem)
+find_package(Boost 1.60.0 REQUIRED COMPONENTS filesystem program_options)
 
 add_executable(demangle demangle.cpp)
-target_link_libraries(demangle libdemangle Boost::filesystem)
+target_link_libraries(demangle libdemangle Boost::filesystem Boost::program_options)
