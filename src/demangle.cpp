@@ -100,12 +100,17 @@ int main(int argc, char **argv)
     };
 
   po::variables_map vm;
-  store(po::command_line_parser(argc, argv)
-        .options(allopt)
-        .positional(p)
-        .extra_parser(dashdash)
-        .run(),
-        vm);
+  try {
+    store(po::command_line_parser(argc, argv)
+          .options(allopt)
+          .positional(p)
+          .extra_parser(dashdash)
+          .run(),
+          vm);
+  } catch (po::error const & err) {
+    std::cerr << err.what() << std::endl;
+    return EXIT_FAILURE;
+  }
   notify(vm);
 
   if (vm.count("help")) {
