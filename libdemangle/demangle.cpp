@@ -277,7 +277,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
       // There's almost certainly a better way to do this.  Perhaps all types ought to remove
       // their own trailing spaces?
       if (rendered.size() > 1 && rendered.back() == ' ') {
-        rendered = rendered.substr(0, rendered.size() - 1);
+        rendered.pop_back();
       }
       stream << rendered;
       stream << "'";
@@ -304,12 +304,12 @@ DemangledType::str_class_name(bool match) const
     stream << "::";
     if (is_dtor) stream << "~";
     if (template_parameters.size() != 0) {
-      clsname = &*template_parameters[template_parameters.size() - 1]->type;
+      clsname = &*template_parameters.back()->type;
     }
 
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
-      stream << clsname->name[name_size-1]->str(match);
+      stream << clsname->name.back()->str(match);
     }
     else {
       stream << "ERRORNOCLASS";
@@ -345,12 +345,12 @@ DemangledType::get_method_name() const
   if (is_ctor || is_dtor) {
     if (is_dtor) stream << "~";
     if (template_parameters.size() != 0) {
-      clsname = &*template_parameters[template_parameters.size() - 1]->type;
+      clsname = &*template_parameters.back()->type;
     }
 
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
-      stream << clsname->name[name_size-1]->str(match);
+      stream << clsname->name.back()->str(match);
     }
     else {
       stream << "ERRORNOCLASS";
@@ -362,7 +362,7 @@ DemangledType::get_method_name() const
   else {
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
-      stream << clsname->name[name_size-1]->str(match);
+      stream << clsname->name.back()->str(match);
     }
   }
 
@@ -394,7 +394,7 @@ DemangledType::get_class_name() const
         // There's almost certainly a better way to do this.  Perhaps all types ought to remove
         // their own trailing spaces?
         if (rendered.size() > 1 && rendered.back() == ' ') {
-          rendered = rendered.substr(0, rendered.size() - 1);
+          rendered.pop_back();
         }
         stream << rendered;
         // This quote is mismatched because Cory didn't want to cause problems for Prolog.
@@ -559,7 +559,10 @@ DemangledType::str(bool match, bool is_retval) const
 
   // Ugly. :-( Move the space from after the storage keywords to before the keywords.
   std::string spstr = str_storage_properties(match, is_retval);
-  if (spstr.size() > 0) stream << " " << spstr.substr(0, spstr.size() - 1);
+  if (!spstr.empty()) {
+    spstr.pop_back();
+    stream << " " << spstr;
+  }
 
   // If the symbol is a global object or a static class member, the name of the object (not the
   // type) will be in the instance_name and not the ordinary name field.
