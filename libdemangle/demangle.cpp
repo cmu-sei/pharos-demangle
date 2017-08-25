@@ -1566,12 +1566,11 @@ struct save_stack {
 } // unnamed namespace
 
 
-DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & t)
+DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & templated_type)
 {
   // The current character was the '$' when this method was called.
   char c = get_next_char();
   progress("templated symbol");
-  auto templated_type = std::make_shared<DemangledType>();
 
   // Whenever we start a new template, we start a new name stack.
   auto saved_name_stack = save_stack(name_stack);
@@ -1642,10 +1641,7 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
   // Advance past the '@' that marked the end of the template parameters.
   advance_to_next_char();
 
-  // Record the templated type in the name of the current type.
-  t->name.insert(t->name.begin(), std::move(templated_type));
-
-  return t;
+  return templated_type;
 }
 
 
