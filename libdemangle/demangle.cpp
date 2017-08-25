@@ -100,32 +100,8 @@ DemangledTypePtr visual_studio_demangle(const std::string & mangled, bool debug)
   return demangler.analyze();
 }
 
-DemangledType::DemangledType() {
-  is_const = false;
-  is_volatile = false;
-  is_reference = false;
-  is_pointer = false;
-  is_array = false;
-  is_namespace = false;
-  is_func = false;
-  is_embedded = false;
-  is_refref = false;
-  is_anonymous = false;
-  is_based = false;
-  is_member = false;
-  symbol_type = SymbolType::Unspecified;
-  distance = Distance::Unspecified;
-  pointer_base = 0;
-  inner_type = nullptr;
-  com_interface = nullptr;
+DemangledType::DemangledType() = default;
 
-  // Properties from function.
-  scope = Scope::Unspecified;
-  method_property = MethodProperty::Unspecified;
-  is_exported = false;
-  is_ctor = false;
-  is_dtor = false;
-}
 
 void DemangledType::debug_type(bool match, size_t indent, std::string label) const {
   size_t x = 0;
@@ -216,16 +192,16 @@ DemangledType::str_storage_properties(bool match, bool is_retval) const
   // mangled name codes it correctly as P/Q/R/S, so when we're not trying to match Visual
   // Studio, it's probably better to retain the qualifier.
   if (match && (is_pointer || is_reference || is_refref) && is_retval) {
-    if (pointer_base == 1) return "__ptr64 ";
+    if (ptr64) return "__ptr64 ";
     return "";
   }
 
-  if (pointer_base == 0 && !is_const && !is_volatile) return "";
+  if (!ptr64 && !is_const && !is_volatile) return "";
 
   std::ostringstream stream;
   if (is_const) stream << "const ";
   if (is_volatile) stream << "volatile ";
-  if (pointer_base == 1) stream << " __ptr64 ";
+  if (ptr64) stream << "__ptr64 ";
   return stream.str();
 }
 
@@ -756,9 +732,9 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
   // them to occur more than once each however.
   while (c == 'E' || c == 'F' || c == 'I') {
     progress("pointer storage class modifier");
-    if (c == 'E') t->pointer_base = 1; // <type> __ptr64
-    else if (c == 'F') {} // __unaligned <type>   BUG!!! Unimplemented!
-    else if (c == 'I') {} // <type> __restrict    BUG!!! Unimplemented!
+    if (c == 'E') t->ptr64 = true;          // <type> __ptr64
+    else if (c == 'F') t->unaligned = true; // __unaligned <type>
+    else if (c == 'I') t->restrict = true;  // <type> __restrict
     c = get_next_char();
   }
 

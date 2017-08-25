@@ -108,11 +108,11 @@ class DemangledType {
   // Laziness. :-(
   std::string str_name_qualifiers(const FullyQualifiedName& the_name, bool match = false) const;
 
-  bool is_const;
-  bool is_volatile;
-  bool is_reference;
-  bool is_pointer;
-  bool is_array;
+  bool is_const = false;
+  bool is_volatile = false;
+  bool is_reference = false;
+  bool is_pointer = false;
+  bool is_array = false;
 
   // Array dimensions
   std::vector<uint64_t> dimensions;
@@ -120,22 +120,22 @@ class DemangledType {
   // Hacky thing for complex types that can't get rendered any better than putting them inside
   // a pair of single quotes.  e.g. ?X@??Y@@9@9 demangles to "`Y'::X".  The extra quotes aren't
   // present if this is the outermost symbol, but are if it's part of a namespace? ...
-  bool is_embedded;
+  bool is_embedded = false;
 
   // Currently used for signaling between functions, but might be useful in general.
-  bool is_func;
+  bool is_func = false;
 
   // Poorly understood features involving storage classes, see update_storage_class()...
-  bool is_based;
-  bool is_member;
+  bool is_based = false;
+  bool is_member = false;
 
   // This really just means that we were a term in a fully qualified
   // name.  We can't actually tell from the demangling whether we were
-  bool is_namespace;
+  bool is_namespace = false;
 
   // True if the namespace is anonymous.  The simple_type string then contains the unique
   // identifier name that's not typically shown for anonymous namespaces.
-  bool is_anonymous;
+  bool is_anonymous = false;
 
   // This is handled horribly by Microsoft, and equally horribly by me.  I want to think some
   // more about the correct approach after I know more about the other $$ cases.  For this
@@ -143,17 +143,18 @@ class DemangledType {
   // reference to a type (although we may still need come custom outputing to avoid getting a
   // space between the references.)  Or maybe is_reference, is_pointer, and is_refref should be
   // an enum?  Apparently the correct name for this is "rvalue reference"?
-  bool is_refref;
+  bool is_refref = false;
 
   // Enum controlling how to interpret this type.
   // 1=namespace, 2=static class member, 3=global object, 4=global function, 5=class method
-  SymbolType symbol_type;
+  SymbolType symbol_type = SymbolType::Unspecified;
 
   // Really an enum: 0=near, 1=far, 2=huge
-  Distance distance;
+  Distance distance = Distance::Unspecified;
 
-  // Really an enum: 0=segment relative, 1=absolute (64-bit mode), 2=__based (64-bit mode)
-  int pointer_base;
+  bool ptr64 = false;
+  bool unaligned = false;
+  bool restrict = false;
 
   // The type pointed to or referenced.
   DemangledTypePtr inner_type;
@@ -177,20 +178,20 @@ class DemangledType {
   DemangledTemplate template_parameters;
 
   // Scope (private, protected, public) of class method. Only applicable to class methods.
-  Scope scope;
+  Scope scope = Scope::Unspecified;
 
   // Class method property (static, virtual, thunk). Only applicable to class methods.
-  MethodProperty method_property;
+  MethodProperty method_property = MethodProperty::Unspecified;
 
   // Calling convention
   std::string calling_convention;
 
   // Was this symbol exported?
-  bool is_exported;
+  bool is_exported = false;
 
   // Names and name like things...
-  bool is_ctor;
-  bool is_dtor;
+  bool is_ctor = false;
+  bool is_dtor = false;
   std::string method_name;
   FullyQualifiedName class_name;
 
@@ -204,10 +205,10 @@ class DemangledType {
   FunctionArgs args;
 
   // And then the really obscure values (like parameters for RTTI data structures).
-  int64_t n1;
-  int64_t n2;
-  int64_t n3;
-  int64_t n4;
+  int64_t n1 = 0;
+  int64_t n2 = 0;
+  int64_t n3 = 0;
+  int64_t n4 = 0;
 
   DemangledType();
   std::string get_class_name() const;
