@@ -6,15 +6,22 @@
 #include <boost/format.hpp>
 
 #include <libdemangle/demangle.hpp>
+#include "demangle_json.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
 namespace {
 
+using demangle::JsonOutput;
+using json::wrapper::Builder;
+
 class Demangler {
   bool debug = false;
   bool winmatch = false;
   bool nosym = false;
+  bool raw = false;
+  std::unique_ptr<Builder> builder;
+  std::unique_ptr<JsonOutput> json_output;
 
  public:
   void set_winmatch(bool val) {
@@ -25,6 +32,20 @@ class Demangler {
   }
   void set_debug(bool val) {
     debug = val;
+  }
+  void set_raw(bool val) {
+    raw = val;
+  }
+  void set_json(bool val) {
+    if (val) {
+      if (!builder) {
+        builder = json::simple_builder();
+        json_output = std::unique_ptr<JsonOutput>(new JsonOutput(*builder));
+      }
+    } else {
+      builder.reset();
+      json_output.reset();
+    }
   }
 
   bool demangle(std::string const & mangled) const;
@@ -37,11 +58,18 @@ bool Demangler::demangle(std::string const & mangled) const
 {
   try {
     auto t = demangle::visual_studio_demangle(mangled, debug);
-    auto dem = t->str(winmatch);
-    if (!nosym) {
-      std::cout << mangled << " ";
+    if (builder) {
+      auto node = raw ? json_output->raw(*t) : json_output->convert(*t);
+      node->add("symbol", builder->simple(mangled));
+      node->add("demangled", builder->simple(t->str(winmatch)));
+      std::cout << *node;
+    } else {
+      auto dem = t->str(winmatch);
+      if (!nosym) {
+        std::cout << mangled << " ";
+      }
+      std::cout << dem << std::endl;
     }
-    std::cout << dem << std::endl;
     return true;
   }
   catch (const demangle::Error& e) {
@@ -50,15 +78,76 @@ bool Demangler::demangle(std::string const & mangled) const
   }
 }
 
-bool demangle_file(Demangler const & demangler, std::istream & file)
+struct Driver {
+  bool first;
+  bool nofile = false;
+  bool json = false;
+  Demangler const & demangler;
+  Driver(Demangler const & d) : demangler(d) {}
+  bool demangle_file(std::istream & file);
+  bool demangle(std::string const & sym);
+  bool run(std::vector<std::string> const & args);
+};
+
+bool Driver::demangle_file(std::istream & file)
 {
   bool success = true;
-  std::string mangled;
-  while (file >> mangled) {
-    success &= demangler(mangled);
+  std::string sym;
+  while (file >> sym) {
+    success &= demangle(sym);
   }
   return success;
 }
+
+bool Driver::demangle(std::string const & sym)
+{
+  if (json) {
+    if (first) {
+      first = false;
+    } else {
+      std::cout << ',';
+    }
+  }
+  return demangler(sym);
+}
+
+bool Driver::run(std::vector<std::string> const & args)
+{
+  first = true;
+  if (json) {
+    std::cout << '[';
+  }
+  bool success = true;
+  bool dd = false;
+  for (auto & arg : args) {
+    if (!dd && arg == "--") {
+      // Ignore the first "--" arg
+      dd = true;
+      continue;
+    }
+    if (!dd && !nofile && arg == "-") {
+      // Handle data from stding
+      success &= demangle_file(std::cin);
+      continue;
+    }
+    if (!nofile) {
+      // See if arg is valid filename
+      boost::filesystem::path path(arg);
+      if (exists(path)) {
+        // Handle data from file
+        std::ifstream file(path.string());
+        success &= demangle_file(file);
+        continue;
+      }
+    }
+    success &= demangle(arg);
+  }
+  if (json) {
+    std::cout << ']';
+  }
+  return success;
+}
+
 
 } // unnamed namespace
 
@@ -73,11 +162,13 @@ int main(int argc, char **argv)
     ("nosym,n",   "Only output the demangled name, not the symbol")
     ("nofile",    "Interpret arguments only as symbols, not at filenames")
     ("debug,d",   "Output demangling debugging spew")
+    ("json,j",    "JSON output")
     ;
 
   po::options_description hidden;
   hidden.add_options()
     ("args", po::value<std::vector<std::string>>(), "Arguments")
+    ("raw", "Raw JSON output")
     ;
 
   po::options_description allopt("Demangler options");
@@ -136,6 +227,12 @@ int main(int argc, char **argv)
   if (vm.count("nosym")) {
     demangler.set_nosym(true);
   }
+  if (vm.count("json")) {
+    demangler.set_json(true);
+  }
+  if (vm.count("raw")) {
+    demangler.set_raw(true);
+  }
   std::vector<std::string> args;
   if (vm.count("args")) {
     args = vm["args"].as<std::vector<std::string>>();
@@ -171,34 +268,10 @@ int main(int argc, char **argv)
   }
 
   // Do the demangling
-  bool nofile = vm.count("nofile");
-  dd = false;
-  bool success = true;
-  for (auto & arg : args) {
-    if (!dd && arg == "--") {
-      // Ignore the first "--" arg
-      dd = true;
-      continue;
-    }
-    if (!dd && !nofile && arg == "-") {
-      // Handle data from stding
-      success &= demangle_file(demangler, std::cin);
-    } else if (!nofile) {
-      // See if arg is valid filename
-      boost::filesystem::path path(arg);
-      if (exists(path)) {
-        // Handle data from file
-        std::ifstream file(path.string());
-        success &= demangle_file(demangler, file);
-      } else {
-        // Demangle arg as symbol
-        success &= demangler(arg);
-      }
-    } else {
-      // Demangle arg as symbol
-      success &= demangler(arg);
-    }
-  }
+  Driver driver(demangler);
+  driver.nofile = vm.count("nofile");
+  driver.json = vm.count("json");
+  bool success = driver.run(args);
 
   return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }
