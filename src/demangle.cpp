@@ -133,11 +133,15 @@ bool Driver::run(std::vector<std::string> const & args)
     if (!nofile) {
       // See if arg is valid filename
       boost::filesystem::path path(arg);
-      if (exists(path)) {
-        // Handle data from file
-        std::ifstream file(path.string());
-        success &= demangle_file(file);
-        continue;
+      try {
+        if (exists(path)) {
+          // Handle data from file
+          std::ifstream file(path.string());
+          success &= demangle_file(file);
+          continue;
+        }
+      } catch (boost::filesystem::filesystem_error &) {
+        // If exists() fails, assume its a symbol.  Fall through.
       }
     }
     success &= demangle(arg);
