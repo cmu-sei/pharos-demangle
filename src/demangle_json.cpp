@@ -238,6 +238,9 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
     }
     obj.add("instance_name", std::move(names));
   }
+  if (sym.retval) {
+    obj.add("retval", raw(*sym.retval));
+  }
   if (!sym.args.empty()) {
     auto args = builder.array();
     for (auto & arg : sym.args) {
