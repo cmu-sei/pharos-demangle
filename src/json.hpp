@@ -104,7 +104,6 @@ class Builder {
 };
 
 std::ostream & operator<<(std::ostream & stream, Node const & n);
-std::ostream & operator<<(std::ostream & stream, NodeRef const & n);
 
 } // namespace json::wrapper
 

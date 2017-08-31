@@ -229,14 +229,6 @@ std::ostream & operator<<(std::ostream & stream, Node const & n)
   return stream;
 }
 
-std::ostream & operator<<(std::ostream & stream, NodeRef const & n)
-{
-  if (n) {
-    return stream << *n;
-  }
-  return stream << "<null>";
-}
-
 } // namespace wrapper
 
 std::unique_ptr<wrapper::Builder> simple_builder()
