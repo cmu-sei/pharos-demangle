@@ -21,6 +21,29 @@ std::unique_ptr<T> make_unique(Args&&... args)
 using std::make_unique;
 #endif
 
+namespace wrapper {
+NodeRef Simple::apply(Builder const & builder)
+{
+  switch(type) {
+   case INT:
+    return builder.simple(i);
+   case DOUBLE:
+    return builder.simple(d);
+   case BOOL:
+    return builder.simple(b);
+   case NULLP:
+    return builder.null();
+   case STRING:
+    return builder.simple(*s);
+   case CSTRING:
+    return builder.simple(c);
+   case STRINGRR:
+    return builder.simple(std::move(r));
+  }
+  return builder.null();
+}
+} // namespace wrapper
+
 namespace simple {
 
 namespace w = json::wrapper;
@@ -108,6 +131,9 @@ class Array : public w::Array
   void add(w::NodeRef o) override {
     vec.push_back(std::move(o));
   }
+
+  void add(w::Simple && o) override;
+
   std::ostream & write(std::ostream & stream) const override {
     stream << '[';
     auto n = begin(vec), last = end(vec);
@@ -131,6 +157,10 @@ class Object : public w::Object {
   void add(std::string && str, w::NodeRef o) override {
     map.emplace(std::move(str), std::move(o));
   }
+
+  void add(std::string const & str, w::Simple && v) override;
+  void add(std::string && str, w::Simple && v) override;
+
   std::ostream & write(std::ostream & stream) const override {
     stream << '{';
     auto n = begin(map), last = end(map);
@@ -149,6 +179,8 @@ class Object : public w::Object {
 class Builder : public w::Builder
 {
  public:
+  using w::Builder::simple;
+
   w::NodeRef simple(std::intmax_t i) const override {
     return make_unique<Simple<std::intmax_t>>(i);
   }
@@ -174,6 +206,18 @@ class Builder : public w::Builder
     return make_unique<Object>();
   }
 };
+
+void Array::add(w::Simple && v) {
+  add(Builder{}.simple(std::move(v)));
+}
+
+void Object::add(std::string const & str, w::Simple && v) {
+  add(str, Builder{}.simple(std::move(v)));
+}
+
+void Object::add(std::string && str, w::Simple && v) {
+  add(std::move(str), Builder{}.simple(std::move(v)));
+}
 
 } // namespace simple
 
