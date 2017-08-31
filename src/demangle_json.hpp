@@ -30,11 +30,6 @@ class JsonOutput {
   Builder const & builder;
   bool match = false;
 
-  template <typename S>
-  NodeRef sim(S s) const {
-    return builder.simple(s);
-  }
-
   void handle_symbol_type(Object & obj, DemangledType const & sym) const;
   void handle_scope(Object & obj, DemangledType const & sym) const;
   void handle_distance(Object & obj, DemangledType const & sym) const;

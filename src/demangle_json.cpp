@@ -38,7 +38,7 @@ void JsonOutput::handle_symbol_type(Object & obj, DemangledType const & sym) con
     symbol_type = "string";
     break;
   }
-  obj.add("symbol_type", sim(symbol_type));
+  obj.add("symbol_type", symbol_type);
 }
 
 void JsonOutput::handle_scope(Object & obj, DemangledType const & sym) const
@@ -57,7 +57,7 @@ void JsonOutput::handle_scope(Object & obj, DemangledType const & sym) const
     scope = "public";
     break;
   }
-  obj.add("scope", sim(scope));
+  obj.add("scope", scope);
 }
 
 void JsonOutput::handle_distance(Object & obj, DemangledType const & sym) const
@@ -76,7 +76,7 @@ void JsonOutput::handle_distance(Object & obj, DemangledType const & sym) const
     distance = "huge";
     break;
   }
-  obj.add("distance", sim(distance));
+  obj.add("distance", distance);
 }
 
 void JsonOutput::handle_method_property(Object & obj, DemangledType const & sym) const
@@ -98,7 +98,7 @@ void JsonOutput::handle_method_property(Object & obj, DemangledType const & sym)
     prop = "thunk";
     break;
   }
-  obj.add("method_property", sim(prop));
+  obj.add("method_property", prop);
 }
 
 void JsonOutput::handle_namespace(Object & obj, DemangledType const & sym) const
@@ -130,11 +130,11 @@ JsonOutput::ObjectRef JsonOutput::convert(DemangledType const & sym) const
     if (sym.retval) {
       obj.add("return_type", convert(*sym.retval));
     }
-    obj.add("calling_convention", sim(sym.calling_convention));
+    obj.add("calling_convention", sym.calling_convention);
   }
   handle_namespace(obj, sym);
 
-  obj.add("text", sim(sym.str(match)));
+  obj.add("text", sym.str(match));
 
   return std::move(node);
 }
@@ -146,7 +146,7 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
 
   auto add_bool = [&obj, this](char const * name, bool val) {
                     if (val) {
-                      obj.add(name, sim(val));
+                      obj.add(name, val);
                     }
                   };
 
@@ -159,7 +159,7 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   if (!sym.dimensions.empty()) {
     auto dim = builder.array();
     for (auto d : sym.dimensions) {
-      dim->add(sim(std::intmax_t(d)));
+      dim->add(std::intmax_t(d));
     }
     obj.add("dimensions", std::move(dim));
   }
@@ -184,7 +184,7 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
     obj.add("enum_real_type", raw(*sym.enum_real_type));
   }
   if (!sym.simple_type.empty()) {
-    obj.add("simple_type", sim(sym.simple_type));
+    obj.add("simple_type", sym.simple_type);
   }
   if (!sym.name.empty()) {
     auto names = builder.array();
@@ -204,10 +204,10 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
         if (param->type) {
           p->add("type", raw(*param->type));
           if (param->pointer) {
-            p->add("pointer", sim(param->pointer));
+            p->add("pointer", param->pointer);
           }
         } else {
-          p->add("constant_value", sim(param->constant_value));
+          p->add("constant_value", param->constant_value);
         }
         params->add(std::move(p));
       }
@@ -217,12 +217,12 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   handle_scope(obj, sym);
   handle_method_property(obj, sym);
   if (!sym.calling_convention.empty()) {
-    obj.add("calling_convention", sim(sym.calling_convention));
+    obj.add("calling_convention", sym.calling_convention);
   }
   add_bool("is_ctor", sym.is_ctor);
   add_bool("is_dtor", sym.is_dtor);
   if (!sym.method_name.empty()) {
-    obj.add("method_name", sim(sym.method_name));
+    obj.add("method_name", sym.method_name);
   }
   if (!sym.class_name.empty()) {
     auto names = builder.array();
@@ -249,10 +249,10 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
     obj.add("args", std::move(args));
   }
   if (sym.n1 || sym.n2 || sym.n3 || sym.n4) {
-    obj.add("n1", sim(sym.n1));
-    obj.add("n2", sim(sym.n2));
-    obj.add("n3", sim(sym.n3));
-    obj.add("n4", sim(sym.n4));
+    obj.add("n1", sym.n1);
+    obj.add("n2", sym.n2);
+    obj.add("n3", sym.n3);
+    obj.add("n4", sym.n4);
   }
   return std::move(node);
 }

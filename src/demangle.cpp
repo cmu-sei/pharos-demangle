@@ -60,8 +60,8 @@ bool Demangler::demangle(std::string const & mangled) const
     auto t = demangle::visual_studio_demangle(mangled, debug);
     if (builder) {
       auto node = raw ? json_output->raw(*t) : json_output->convert(*t);
-      node->add("symbol", builder->simple(mangled));
-      node->add("demangled", builder->simple(t->str(winmatch)));
+      node->add("symbol", mangled);
+      node->add("demangled", t->str(winmatch));
       std::cout << *node;
     } else {
       auto dem = t->str(winmatch);
