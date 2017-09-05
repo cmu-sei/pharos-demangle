@@ -503,8 +503,10 @@ DemangledType::str(bool match, bool is_retval) const
     stream << str_name_qualifiers(name, match);
     // str_class_name() currently includes the fixes for moving the retval on "operator ".
     stream << str_class_name(match);
-    if (symbol_type == SymbolType::VtorDisp) {
+    if (match && symbol_type == SymbolType::VtorDisp) {
       stream << "`vtordisp{" << n1 << ',' << n2 << "}' ";
+    } else if (match && method_property == MethodProperty::Thunk) {
+      stream << "`adjustor{" << n2 << "}' ";
     }
     stream << str_function_arguments(match);
     stream << str_storage_properties(match);
@@ -1963,9 +1965,12 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
    case SymbolType::VtorDisp:
     // Get the displacement, then treat as method
     t->n1 = get_number();
-    t->n2 = get_number();
     // Fall through
    case SymbolType::ClassMethod:
+    if (t->method_property == MethodProperty::Thunk) {
+      // get the thunk offset
+      t->n2 = get_number();
+    }
     // There's no storage class code for static class methods.
     if (t->method_property != MethodProperty::Static) {
       process_method_storage_class(t); // Table 15
