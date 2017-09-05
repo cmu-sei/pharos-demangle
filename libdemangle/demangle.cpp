@@ -161,6 +161,8 @@ bool DemangledType::is_func_ptr() const {
 std::string DemangledType::str_class_properties(bool match) const {
   std::ostringstream stream;
 
+  if (match && method_property == MethodProperty::Thunk) stream << "[thunk]:";
+
   // I should convert these enums to use the enum stringifier...
   if (scope == Scope::Private) stream << "private: ";
   if (scope == Scope::Protected) stream << "protected: ";
@@ -168,8 +170,6 @@ std::string DemangledType::str_class_properties(bool match) const {
 
   if (method_property == MethodProperty::Static) stream << "static ";
   if (method_property == MethodProperty::Virtual) stream << "virtual ";
-  // The formatting of thunks is not correct.
-  if (match && method_property == MethodProperty::Thunk) stream << "thunk ";
   return stream.str();
 }
 
@@ -470,8 +470,9 @@ DemangledType::str(bool match, bool is_retval) const
   stream << str_class_properties(match);
 
   // Partially conversion from old code and partially simplification of this method.
-  if (symbol_type == SymbolType::GlobalFunction || symbol_type == SymbolType::ClassMethod) {
-
+  if (symbol_type == SymbolType::GlobalFunction || symbol_type == SymbolType::ClassMethod
+      || symbol_type == SymbolType::VtorDisp)
+  {
     stream << str_distance(match);
     // Guessing at formatting..
     if (is_exported) stream << "__declspec(dllexport)";
@@ -502,6 +503,9 @@ DemangledType::str(bool match, bool is_retval) const
     stream << str_name_qualifiers(name, match);
     // str_class_name() currently includes the fixes for moving the retval on "operator ".
     stream << str_class_name(match);
+    if (symbol_type == SymbolType::VtorDisp) {
+      stream << "`vtordisp{" << n1 << ',' << n2 << "}' ";
+    }
     stream << str_function_arguments(match);
     stream << str_storage_properties(match);
 
@@ -1462,6 +1466,22 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
    case 'Y': t->symbol_type = SymbolType::GlobalFunction; t->distance = Distance::Near; return t;
    case 'Z': t->symbol_type = SymbolType::GlobalFunction; t->distance = Distance::Far; return t;
 
+   case '$':
+    c = get_current_char();
+    advance_to_next_char();
+    switch (c) {
+     case '0': update_method(t, Scope::Private, MethodProperty::Thunk, Distance::Near); break;
+     case '1': update_method(t, Scope::Private, MethodProperty::Thunk, Distance::Far); break;
+     case '2': update_method(t, Scope::Protected, MethodProperty::Thunk, Distance::Near); break;
+     case '3': update_method(t, Scope::Protected, MethodProperty::Thunk, Distance::Far); break;
+     case '4': update_method(t, Scope::Public, MethodProperty::Thunk, Distance::Near); break;
+     case '5': update_method(t, Scope::Public, MethodProperty::Thunk, Distance::Far); break;
+     default:
+      bad_code(c, "extended symbol type");
+    }
+    t->symbol_type = SymbolType::VtorDisp;
+    return t;
+    break;
    default:
     bad_code(c, "symbol type");
   }
@@ -1940,6 +1960,11 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     get_storage_class_modifiers(t);
     get_storage_class(t); // Table 10
     return t;
+   case SymbolType::VtorDisp:
+    // Get the displacement, then treat as method
+    t->n1 = get_number();
+    t->n2 = get_number();
+    // Fall through
    case SymbolType::ClassMethod:
     // There's no storage class code for static class methods.
     if (t->method_property != MethodProperty::Static) {
