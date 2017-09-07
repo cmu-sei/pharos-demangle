@@ -528,6 +528,9 @@ DemangledType::str(bool match, bool is_retval) const
       return simple_type;
     }
     stream << inner_type->str() << '[' << n1 << "] = \"" << method_name << '"';
+    if (n1 > 32) {
+      stream << "...";
+    }
     return stream.str();
   }
 
@@ -1153,7 +1156,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
         // Special encodings
         static char const * special = ",/\\:. \v\n'-";
         v = special[c - '0'];
-      } else if ((c >= 'a' && c <= 'p') || (c >= 'A' && c <= 'P')) {
+      } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
         v = c + 0x80;
       } else {
         bad_code(c, "string special char");
@@ -1181,7 +1184,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
   t->inner_type = std::make_shared<DemangledType>();
   t->inner_type->simple_type = multibyte ? "char16_t" : "char";
   t->simple_type = "`string'";
-  t->n1 = real_len;
+  t->n1 = multibyte ? (real_len / 2) : real_len;
   t->is_pointer = true;
   t->method_name = std::move(result);
   return t;
