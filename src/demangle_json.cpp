@@ -43,6 +43,9 @@ void JsonOutput::handle_symbol_type(Object & obj, DemangledType const & sym) con
    case SymbolType::StaticGuard:
     symbol_type = "static guard";
     break;
+   case SymbolType::MethodThunk:
+    symbol_type = "method thunk";
+    break;
   }
   obj.add("symbol_type", symbol_type);
 }

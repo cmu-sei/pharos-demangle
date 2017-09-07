@@ -525,6 +525,16 @@ DemangledType::str(bool match, bool is_retval) const
     return stream.str();
   }
 
+  if (symbol_type == SymbolType::MethodThunk) {
+    stream << ' ' << calling_convention << ' ';
+    stream << str_name_qualifiers(name, match);
+    stream << str_class_name(match);
+    if (match) {
+      stream << '{' << n1 << ",{flat}}' }'";
+    }
+    return stream.str();
+  }
+
   if (symbol_type == SymbolType::String) {
     if (match) {
       return simple_type;
@@ -1501,6 +1511,10 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
      case '3': update_method(t, Scope::Protected, MethodProperty::Thunk, Distance::Far); break;
      case '4': update_method(t, Scope::Public, MethodProperty::Thunk, Distance::Near); break;
      case '5': update_method(t, Scope::Public, MethodProperty::Thunk, Distance::Far); break;
+     case 'B':
+      t->method_property = MethodProperty::Thunk;
+      t->symbol_type = SymbolType::MethodThunk;
+      return t;
      default:
       bad_code(c, "extended symbol type");
     }
@@ -2008,6 +2022,15 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     return get_function(t);
    case SymbolType::StaticGuard:
     t->n1 = get_number();
+    return t;
+   case SymbolType::MethodThunk:
+    t->n1 = get_number();
+    switch (char c = get_current_char()) {
+     case 'A': break; // Only known type: flat
+     default: bad_code(c, "method thunk type");
+    }
+    advance_to_next_char();
+    process_calling_convention(t);
     return t;
    default:
     general_error("Unrecognized symbol type.");
