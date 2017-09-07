@@ -809,9 +809,9 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   if (t->inner_type->is_func) {
     progress("function pointed to");
     get_function(t->inner_type);
-    if (t->inner_type->is_member && !t->inner_type->is_based) {
-      t->inner_type->calling_convention = "__thiscall";
-    }
+    // if (t->inner_type->is_member && !t->inner_type->is_based) {
+    //   t->inner_type->calling_convention = "__thiscall";
+    // }
   }
   else {
     progress("type pointed to");
@@ -970,10 +970,9 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     }
     return t;
    case '?': // Documented at wikiversity as "type modifier, template parameter"
-    c = get_next_char();
-    bad_code(c, "type? thing");
-    break;
-   // Documented at wikiversity as "type modifier, template parameter"
+    advance_to_next_char();
+    get_storage_class(t);
+    return get_type(t, push);
    case '$':
     c = get_next_char();
     // A second '$' (two in a row)...
@@ -1922,6 +1921,17 @@ int64_t VisualStudioDemangler::get_number() {
 }
 
 DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
+  // Storage class for methods
+  if (t->is_func && t->is_member) {
+    auto tmp = std::make_shared<DemangledType>();
+    get_storage_class_modifiers(tmp);
+    get_storage_class(tmp);
+    t->is_const = tmp->is_const;
+    t->is_volatile = tmp->is_volatile;
+    t->ptr64 = tmp->ptr64;
+    t->unaligned = tmp->unaligned;
+    t->restrict = tmp->restrict;
+  }
   // And then the remaining codes are the same for functions and methods.
   process_calling_convention(t);
   // Return code.  It's annoying that the modifiers come first and require us to allocate it.
