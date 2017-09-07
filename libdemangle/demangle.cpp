@@ -236,8 +236,10 @@ DemangledType::str_template_parameters(bool match) const
     DemangledTemplate::const_iterator pit;
     for (pit = template_parameters.begin(); pit != template_parameters.end(); pit++) {
       auto tp = *pit;
+      auto next = pit + 1;
       if (!tp) {
-        if (template_parameters.size() != 1) {
+        // A null template parameter should only be the last entry in a template parameter list
+        if (template_parameters.end() != next) {
           throw std::runtime_error("Unexpectedly NULL template parameter!");
         }
       }
@@ -245,7 +247,7 @@ DemangledType::str_template_parameters(bool match) const
         tpstr = tp->str(match);
         stream << tpstr;
       }
-      if ((pit+1) != template_parameters.end()) {
+      if (next != template_parameters.end() && *(next)) {
         if (!match) stream << ", ";
         else stream << ",";
       }
@@ -994,6 +996,10 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         t->name.push_back(std::make_shared<Namespace>("std"));
         t->name.push_back(std::make_shared<Namespace>("nullptr_t"));
         return t;
+       case 'V':
+        // empty parameter pack.  Return null
+        advance_to_next_char();
+        return DemangledTypePtr();
        default:
         bad_code(c, "extended '$$' type");
       }
@@ -1658,13 +1664,18 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         parameter->pointer = true;
         break;
        case '$':
-        if (get_next_char() == 'V') {
-          // Empty parameter list
-          advance_to_next_char();
-          break;
+        {
+          // We'll interpret as a $$ type, but there could be any number of $s first.  So skip
+          // past the last $ and then go back two
+          auto pos = mangled.find_first_not_of('$', offset);
+          if (pos == std::string::npos) {
+            bad_code(c, "template argument");
+          }
+          offset = pos - 2;
+          if (auto type = get_type()) {
+            parameter = std::make_shared<DemangledTemplateParameter>(std::move(type));
+          }
         }
-        offset -= 2;
-        parameter = std::make_shared<DemangledTemplateParameter>(get_type());
         break;
        default:
         bad_code(c, "template argument");
