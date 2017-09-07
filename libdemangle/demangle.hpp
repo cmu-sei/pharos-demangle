@@ -26,7 +26,8 @@ enum class SymbolType {
   GlobalThing1,
   GlobalThing2,
   String,
-  VtorDisp
+  VtorDisp,
+  StaticGuard
 };
 
 enum class Scope {

@@ -40,6 +40,9 @@ void JsonOutput::handle_symbol_type(Object & obj, DemangledType const & sym) con
    case SymbolType::VtorDisp:
     symbol_type = "vtordisp";
     break;
+   case SymbolType::StaticGuard:
+    symbol_type = "static guard";
+    break;
   }
   obj.add("symbol_type", symbol_type);
 }

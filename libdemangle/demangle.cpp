@@ -600,6 +600,16 @@ DemangledType::str(bool match, bool is_retval) const
     //stream << "|";
   }
 
+  if (symbol_type == SymbolType::StaticGuard) {
+    if (method_name.size() > 0) {
+      stream << "::" << method_name;
+    }
+    stream << '{' << n1 << '}';
+    if (match) {
+      stream << '\'';
+    }
+  }
+
   if (com_interface != nullptr) {
     stream << "{for `" << com_interface->str(match) << "'}";
   }
@@ -1429,6 +1439,10 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
     t->symbol_type = SymbolType::GlobalObject;
     return t;
 
+   case '5':
+    t->symbol_type = SymbolType::StaticGuard;
+    return t;
+
     // Every indication is that 6 and 7 demangle identically in the offical undname tool.
    case '6':
    case '7':
@@ -1981,6 +1995,9 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     // Fall through to global function.
    case SymbolType::GlobalFunction:
     return get_function(t);
+   case SymbolType::StaticGuard:
+    t->n1 = get_number();
+    return t;
    default:
     general_error("Unrecognized symbol type.");
   }
