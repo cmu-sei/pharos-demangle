@@ -161,6 +161,10 @@ bool DemangledType::is_func_ptr() const {
 std::string DemangledType::str_class_properties(bool match) const {
   std::ostringstream stream;
 
+  if (match && extern_c) {
+    stream << "extern \"C\" ";
+  }
+
   if (match && method_property == MethodProperty::Thunk) stream << "[thunk]:";
 
   // I should convert these enums to use the enum stringifier...
@@ -1511,6 +1515,25 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
       t->method_property = MethodProperty::Thunk;
       t->symbol_type = SymbolType::MethodThunk;
       return t;
+     case '$':
+      // Prefix codes
+      c = get_current_char();
+      advance_to_next_char();
+      switch (c) {
+       case 'J':
+        {
+          t->extern_c = true;
+          // Ignore the next <number> - 1 characters
+          auto n = get_number() - 1;
+          for (int i = 0; i < n; ++i) {
+            advance_to_next_char();
+          }
+        }
+        break;
+       default:
+        bad_code(c, "symbol type prefix");
+      }
+      return get_symbol_type(t);
      default:
       bad_code(c, "extended symbol type");
     }

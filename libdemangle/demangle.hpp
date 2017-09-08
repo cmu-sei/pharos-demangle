@@ -213,6 +213,9 @@ class DemangledType {
   int64_t n3 = 0;
   int64_t n4 = 0;
 
+  // extern "C" (which shouldn't be mangled, but Microsoft)
+  bool extern_c = false;
+
   DemangledType();
   std::string get_class_name() const;
   std::string get_method_name() const;

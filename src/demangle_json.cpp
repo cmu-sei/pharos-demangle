@@ -263,6 +263,8 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
     obj.add("n3", sym.n3);
     obj.add("n4", sym.n4);
   }
+  add_bool("extern_c", sym.extern_c);
+
   return std::move(node);
 }
 
