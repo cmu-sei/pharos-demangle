@@ -1159,6 +1159,9 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
   for (int64_t i = 0; i < len; ++i) {
     char v;
     c = get_current_char();
+    if (c == '@') {
+      break;
+    }
     if (c == '?') {
       c = get_next_char();
       if (c == '$') {
