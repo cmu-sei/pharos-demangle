@@ -1530,6 +1530,10 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
           }
         }
         break;
+       case 'F':
+       case 'H':
+        // Unknown.  No difference in undname output
+        break;
        default:
         bad_code(c, "symbol type prefix");
       }
