@@ -1809,7 +1809,8 @@ DemangledTypePtr VisualStudioDemangler::get_anonymous_namespace() {
     }
     else {
       general_error(
-        boost::str(boost::format("Disallowed character '%c' in literal string.") % c));
+        boost::str(boost::format("Disallowed character '%c' in anonymous namespace digits.")
+                   % c));
     }
     c = get_next_char();
     digits++;
@@ -1839,7 +1840,7 @@ std::string VisualStudioDemangler::get_literal() {
     if ((c >= 'A' && c <= 'Z') || // uppercase letters
         (c >= 'a' && c <= 'z') || // lowercase letters
         (c >= '0' && c <= '9') || // digits
-        c == '_' || c == '$' || c == '<' || c == '>') {  // misc punctuation
+        c == '_' || c == '$' || c == '<' || c == '>' || c == '-') {  // misc punctuation
       // Allowed
     }
     else {
