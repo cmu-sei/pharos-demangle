@@ -237,13 +237,7 @@ DemangledType::str_template_parameters(bool match) const
     for (pit = template_parameters.begin(); pit != template_parameters.end(); pit++) {
       auto tp = *pit;
       auto next = pit + 1;
-      if (!tp) {
-        // A null template parameter should only be the last entry in a template parameter list
-        if (template_parameters.end() != next) {
-          throw std::runtime_error("Unexpectedly NULL template parameter!");
-        }
-      }
-      else {
+      if (tp) {
         tpstr = tp->str(match);
         stream << tpstr;
       }
