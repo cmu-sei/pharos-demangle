@@ -1676,6 +1676,11 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
         parameter->pointer = true;
         break;
+       case 'S':
+        // Empty non-type parameter pack.  Treat similar to $$V
+        advance_to_next_char();
+        progress("empty non-type parameter pack");
+        break;
        case '$':
         {
           // We'll interpret as a $$ type, but there could be any number of $s first.  So skip
