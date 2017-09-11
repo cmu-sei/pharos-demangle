@@ -955,6 +955,8 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
      case 'M': update_simple_type(t, "unsigned __int128"); break;
      case 'N': update_simple_type(t, "bool"); break;
      case 'O': bad_code(c, "unhandled array");
+     case 'S': update_simple_type(t, "char16_t"); break;
+     case 'U': update_simple_type(t, "char32_t"); break;
      case 'W': update_simple_type(t, "wchar_t"); break;
      case 'X': bad_code(c, "coclass");
      case 'Y': bad_code(c, "cointerface");
