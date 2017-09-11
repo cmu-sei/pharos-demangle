@@ -645,14 +645,22 @@ DemangledTemplateParameter::DemangledTemplateParameter(int64_t c)
 {}
 
 std::string DemangledTemplateParameter::str(bool match) const {
+  std::ostringstream stream;
   if (type == nullptr) {
-    return boost::str(boost::format("%d") % constant_value);
+    stream << constant_value;
   }
   else if (pointer) {
-    return boost::str(boost::format("std::addressof(%s)") % type->str(match));
+    if (type->symbol_type == SymbolType::ClassMethod
+        || (type->is_func && type->is_member))
+    {
+      stream << '{' << type->str(match) << ',' << constant_value << '}';
+    } else {
+      stream << "std::addressof(" << type->str(match) << ')';
+    }
   } else {
     return type->str(match);
   }
+  return stream.str();
 }
 
 namespace detail {
@@ -1712,6 +1720,13 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         progress("constant pointer template parameter");
         parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
         parameter->pointer = true;
+        break;
+       case 'H':
+        advance_to_next_char();
+        progress("constant function pointer template parameter");
+        parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
+        parameter->pointer = true;
+        parameter->constant_value = get_number();
         break;
        case 'S':
         // Empty non-type parameter pack.  Treat similar to $$V
