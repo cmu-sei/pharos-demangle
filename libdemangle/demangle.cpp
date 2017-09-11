@@ -1974,7 +1974,7 @@ int64_t VisualStudioDemangler::get_number() {
     general_error("There were too few hex digits endecoded in the number.");
   }
 
-  if (digits_found > 8) {
+  if (digits_found > 16) {
     general_error("There were too many hex digits encoded in the number.");
   }
 
