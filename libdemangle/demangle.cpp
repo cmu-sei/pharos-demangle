@@ -1866,16 +1866,20 @@ std::string VisualStudioDemangler::get_literal() {
 
   char c = get_current_char();
   while (c != '@') {
-    // Allowed characters are:
-    if ((c >= 'A' && c <= 'Z') || // uppercase letters
-        (c >= 'a' && c <= 'z') || // lowercase letters
-        (c >= '0' && c <= '9') || // digits
-        c == '_' || c == '$' || c == '<' || c == '>' || c == '-') {  // misc punctuation
-      // Allowed
-    }
-    else {
-      general_error(
-        boost::str(boost::format("Disallowed character '%c' in literal string.") % c));
+    switch (c) {
+      // misc punctuation
+     case '_': case '$':
+     case '<': case '>':
+     case '-': case '.':
+      break;
+     default:
+      if (!((c >= 'A' && c <= 'Z') || // uppercase letters
+            (c >= 'a' && c <= 'z') || // lowercase letters
+            (c >= '0' && c <= '9'))) // digits
+      {
+        general_error(
+          boost::str(boost::format("Disallowed character '%c' in literal string.") % c));
+      }
     }
     c = get_next_char();
   }
