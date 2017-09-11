@@ -1004,7 +1004,8 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         t->name.push_back(std::make_shared<Namespace>("nullptr_t"));
         return t;
        case 'V':
-        // empty parameter pack.  Return null
+       case 'Z':
+        // end of parameter pack.  Return null
         advance_to_next_char();
         return DemangledTypePtr();
        default:
