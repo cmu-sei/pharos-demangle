@@ -620,8 +620,17 @@ DemangledType::str(bool match, bool is_retval) const
     }
   }
 
-  if (com_interface != nullptr) {
-    stream << "{for `" << com_interface->str(match) << "'}";
+  if (!com_interface.empty()) {
+    stream << "{for ";
+    auto i = com_interface.begin();
+    auto e = com_interface.end();
+    while (i != e) {
+      stream << '`' << (*i++)->str(match) << '\'';
+      if (i != e) {
+        stream << "s ";
+      }
+    }
+    stream << '}';
   }
 
   return stream.str();
@@ -2026,16 +2035,15 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
 
   switch(t->symbol_type) {
    case SymbolType::GlobalThing2:
-    t->instance_name = t->name;
-    t->name.clear();
-    process_method_storage_class(t);
-    // The interface name is optional.
-    if (get_current_char() != '@') {
-      t->com_interface = std::make_shared<DemangledType>();
-      get_fully_qualified_name(t->com_interface);
-    }
-    if (get_current_char() != '@') {
-      general_error("Expected '@' at end of SymbolType6.");
+    {
+      t->instance_name = t->name;
+      t->name.clear();
+      process_method_storage_class(t);
+      // The interface name is optional.
+      while (get_current_char() != '@') {
+        auto n = std::make_shared<DemangledType>();
+        t->com_interface.push_back(get_fully_qualified_name(n, false));
+      }
     }
     return t;
    case SymbolType::String:

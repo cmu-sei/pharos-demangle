@@ -159,6 +159,16 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
                     }
                   };
 
+  auto add_list = [&obj, this](char const * name, FullyQualifiedName const & names) {
+                    if (!names.empty()) {
+                      auto nlist = builder.array();
+                      for (auto & n : names) {
+                        nlist->add(raw(*n));
+                      }
+                      obj.add(name, std::move(nlist));
+                    }
+                  };
+
   add_bool("is_const", sym.is_const);
   add_bool("is_volatile", sym.is_volatile);
   add_bool("is_reference", sym.is_reference);
@@ -195,16 +205,8 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   if (!sym.simple_type.empty()) {
     obj.add("simple_type", sym.simple_type);
   }
-  if (!sym.name.empty()) {
-    auto names = builder.array();
-    for (auto & name : sym.name) {
-      names->add(raw(*name));
-    }
-    obj.add("name", std::move(names));
-  }
-  if (sym.com_interface) {
-    obj.add("com_interface", raw(*sym.com_interface));
-  }
+  add_list("name", sym.name);
+  add_list("com_interface", sym.com_interface);
   if (!sym.template_parameters.empty()) {
     auto params = builder.array();
     for (auto & param : sym.template_parameters) {
@@ -233,30 +235,12 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   if (!sym.method_name.empty()) {
     obj.add("method_name", sym.method_name);
   }
-  if (!sym.class_name.empty()) {
-    auto names = builder.array();
-    for (auto & name : sym.class_name) {
-      names->add(raw(*name));
-    }
-    obj.add("class_name", std::move(names));
-  }
-  if (!sym.instance_name.empty()) {
-    auto names = builder.array();
-    for (auto & name : sym.instance_name) {
-      names->add(raw(*name));
-    }
-    obj.add("instance_name", std::move(names));
-  }
+  add_list("class_name", sym.class_name);
+  add_list("instance_name", sym.instance_name);
   if (sym.retval) {
     obj.add("retval", raw(*sym.retval));
   }
-  if (!sym.args.empty()) {
-    auto args = builder.array();
-    for (auto & arg : sym.args) {
-      args->add(raw(*arg));
-    }
-    obj.add("args", std::move(args));
-  }
+  add_list("args", sym.args);
   if (sym.n1 || sym.n2 || sym.n3 || sym.n4) {
     obj.add("n1", sym.n1);
     obj.add("n2", sym.n2);

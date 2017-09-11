@@ -175,7 +175,7 @@ class DemangledType {
   FullyQualifiedName name;
 
   // I'm not sure that I've named this correctly.  Set by symbol types 6 & 7.
-  DemangledTypePtr com_interface;
+  FullyQualifiedName com_interface;
 
   // If the class was templated, these are the parameters.
   DemangledTemplate template_parameters;
