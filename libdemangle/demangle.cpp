@@ -1138,6 +1138,7 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
        default:
         bad_code(c, "special name '__')");
       }
+      break;
      default:
       bad_code(c, "special name '_'");
     }
