@@ -205,7 +205,11 @@ DemangledType::str_storage_properties(bool match, bool is_retval) const
   std::ostringstream stream;
   if (is_const) stream << "const ";
   if (is_volatile) stream << "volatile ";
-  if (ptr64) stream << "__ptr64 ";
+  if (match && unaligned) stream << "__unaligned ";
+  if (match && ptr64) stream << "__ptr64 ";
+  if (match && restrict) stream << "__restrict ";
+  if (is_reference) stream << "& ";
+  if (is_refref) stream << "&& ";
   return stream.str();
 }
 
@@ -509,7 +513,6 @@ DemangledType::str(bool match, bool is_retval) const
       stream << "`adjustor{" << n2 << "}' ";
     }
     stream << str_function_arguments(match);
-    stream << str_storage_properties(match);
 
     if (retval && retval->is_func_ptr() && method_name != "operator ") {
       //stream << "|";
@@ -519,6 +522,8 @@ DemangledType::str(bool match, bool is_retval) const
       stream << retval->inner_type->str_storage_properties(match);
       //stream << "|";
     }
+
+    stream << str_storage_properties(match);
 
     return stream.str();
   }
@@ -779,12 +784,31 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
   // Type storage class modifiers.  These letters are currently non-overlapping with the
   // storage class and can occur zero or more times.  Technically it's probably invalid for
   // them to occur more than once each however.
-  while (c == 'E' || c == 'F' || c == 'I') {
+  bool cont = true;
+  while (cont) {
     progress("pointer storage class modifier");
-    if (c == 'E') t->ptr64 = true;          // <type> __ptr64
-    else if (c == 'F') t->unaligned = true; // __unaligned <type>
-    else if (c == 'I') t->restrict = true;  // <type> __restrict
-    c = get_next_char();
+    switch (c) {
+     case 'E':
+      t->ptr64 = true;        // <type> __ptr64
+      break;
+     case 'F':
+      t->unaligned = true;    // __unaligned <type>
+      break;
+     case 'G':
+      t->is_reference = true; // <type> &
+      break;
+     case 'H':
+      t->is_refref = true;   // <type> &&
+      break;
+     case 'I':
+      t->restrict = true;     // <type> __restrict
+      break;
+     default:
+      cont = false;
+    }
+    if (cont) {
+      c = get_next_char();
+    }
   }
 
   // Handle managed C++ properties
