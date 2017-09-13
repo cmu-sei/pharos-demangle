@@ -2,6 +2,7 @@
 #include <string>
 #include <sstream>
 #include <cstdlib>
+#include <cstring>
 #include <algorithm>
 #include <boost/format.hpp>
 #include <boost/locale/encoding_utf.hpp>
@@ -102,6 +103,31 @@ DemangledTypePtr visual_studio_demangle(const std::string & mangled, bool debug)
 
 DemangledType::DemangledType() = default;
 
+
+std::string quote_string(const std::string & input)
+{
+  static auto special_chars = "\"\\\a\b\f\n\r\t\v";
+  static auto names = "\"\\abfnrtv";
+  std::string output;
+  output.reserve(input.size() + 2);
+  output.push_back('\"');
+  for (auto c : input) {
+    if (c == '\0') {
+      output.push_back('\\');
+      output.push_back('0');
+    } else {
+      auto pos = std::strchr(special_chars, c);
+      if (pos) {
+        output.push_back('\\');
+        output.push_back(*(names + (pos - special_chars)));
+      } else {
+        output.push_back(c);
+      }
+    }
+  }
+  output.push_back('\"');
+  return output;
+}
 
 void DemangledType::debug_type(bool match, size_t indent, std::string label) const {
   size_t x = 0;
@@ -542,7 +568,7 @@ DemangledType::str(bool match, bool is_retval) const
     if (match) {
       return simple_type;
     }
-    stream << inner_type->str() << '[' << n1 << "] = \"" << method_name << '"';
+    stream << inner_type->str() << '[' << n1 << "] = " << quote_string(method_name);
     if (n1 > 32) {
       stream << "...";
     }
