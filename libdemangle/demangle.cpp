@@ -464,8 +464,8 @@ std::string
 DemangledType::str_pointer_punctuation(UNUSED bool match) const
 {
   if (is_refref) return "&&";
-  if (is_pointer) return "*";
-  if (is_reference) return "&";
+  if (is_pointer) return is_gc ? "^" : "*";
+  if (is_reference) return is_gc ? "%" : "&";
   return "";
 }
 
@@ -841,9 +841,11 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
   if (c == '$') {
     c = get_next_char();
     switch (c) {
-     case 'A': // __gc   BUG!!! Unimplemented!
+     case 'A':
+      t->is_gc = true;
       break;
      case 'B': // __pin  BUG!!! Unimplemented!
+      t->is_pin = true;
       break;
      default:
       bad_code(c, "managed C++ property");

@@ -159,6 +159,9 @@ class DemangledType {
   bool unaligned = false;
   bool restrict = false;
 
+  bool is_gc = false;
+  bool is_pin = false;
+
   // The type pointed to or referenced.
   DemangledTypePtr inner_type;
 

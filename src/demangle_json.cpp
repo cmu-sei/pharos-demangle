@@ -196,6 +196,8 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   add_bool("ptr64", sym.ptr64);
   add_bool("unaligned", sym.unaligned);
   add_bool("restrict", sym.restrict);
+  add_bool("is_gc", sym.is_gc);
+  add_bool("is_pin", sym.is_pin);
   if (sym.inner_type) {
     obj.add("inner_type", raw(*sym.inner_type));
   }
