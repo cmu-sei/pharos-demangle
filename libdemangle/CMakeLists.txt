@@ -5,3 +5,7 @@ target_include_directories(libdemangle INTERFACE
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>)
 
+
+install(TARGETS libdemangle EXPORT libdemangle DESTINATION lib)
+install(FILES demangle.hpp DESTINATION include/libdemangle)
+install(EXPORT libdemangle DESTINATION lib/cmake/libdemangle)
