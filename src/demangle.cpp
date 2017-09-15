@@ -20,6 +20,7 @@ class Demangler {
   bool winmatch = false;
   bool nosym = false;
   bool raw = false;
+  bool batch = false;
   std::unique_ptr<Builder> builder;
   std::unique_ptr<JsonOutput> json_output;
 
@@ -35,6 +36,9 @@ class Demangler {
   }
   void set_raw(bool val) {
     raw = val;
+  }
+  void set_batch(bool val) {
+    batch = val;
   }
   void set_json(bool val) {
     if (val) {
@@ -63,6 +67,9 @@ bool Demangler::demangle(std::string const & mangled) const
       node->add("symbol", mangled);
       node->add("demangled", t->str(winmatch));
       std::cout << *node;
+      if (batch) {
+        std::cout << std::endl;
+      }
     } else {
       auto dem = t->str(winmatch);
       if (!nosym) {
@@ -73,7 +80,17 @@ bool Demangler::demangle(std::string const & mangled) const
     return true;
   }
   catch (const demangle::Error& e) {
-    std::cout << "! " <<  mangled << " " << e.what() << std::endl;
+    if (builder) {
+      auto node = builder->object();
+      node->add("symbol", mangled);
+      node->add("error", e.what());
+      std::cout << *node;
+      if (batch) {
+        std::cout << std::endl;
+      }
+    } else {
+      std::cout << "! " <<  mangled << " " << e.what() << std::endl;
+    }
     return false;
   }
 }
@@ -82,6 +99,7 @@ struct Driver {
   bool first;
   bool nofile = false;
   bool json = false;
+  bool batch = false;
   Demangler const & demangler;
   Driver(Demangler const & d) : demangler(d) {}
   bool demangle_file(std::istream & file);
@@ -104,7 +122,7 @@ bool Driver::demangle(std::string const & sym)
   if (json) {
     if (first) {
       first = false;
-    } else {
+    } else if (!batch) {
       std::cout << ',';
     }
   }
@@ -114,7 +132,7 @@ bool Driver::demangle(std::string const & sym)
 bool Driver::run(std::vector<std::string> const & args)
 {
   first = true;
-  if (json) {
+  if (json && !batch) {
     std::cout << '[';
   }
   bool success = true;
@@ -146,7 +164,7 @@ bool Driver::run(std::vector<std::string> const & args)
     }
     success &= demangle(arg);
   }
-  if (json) {
+  if (json & !batch) {
     std::cout << ']';
   }
   return success;
@@ -167,12 +185,13 @@ int main(int argc, char **argv)
     ("nofile",    "Interpret arguments only as symbols, not at filenames")
     ("debug,d",   "Output demangling debugging spew")
     ("json,j",    "JSON output")
+    ("raw",       "Raw JSON output")
+    ("batch",     "JSON objects as newline-separated, rather than in a list")
     ;
 
   po::options_description hidden;
   hidden.add_options()
     ("args", po::value<std::vector<std::string>>(), "Arguments")
-    ("raw", "Raw JSON output")
     ;
 
   po::options_description allopt("Demangler options");
@@ -237,6 +256,9 @@ int main(int argc, char **argv)
   if (vm.count("raw")) {
     demangler.set_raw(true);
   }
+  if (vm.count("batch")) {
+    demangler.set_batch(true);
+  }
   std::vector<std::string> args;
   if (vm.count("args")) {
     args = vm["args"].as<std::vector<std::string>>();
@@ -275,6 +297,7 @@ int main(int argc, char **argv)
   Driver driver(demangler);
   driver.nofile = vm.count("nofile");
   driver.json = vm.count("json");
+  driver.batch = vm.count("batch");
   bool success = driver.run(args);
 
   return success ? EXIT_SUCCESS : EXIT_FAILURE;
