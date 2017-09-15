@@ -497,6 +497,10 @@ DemangledType::str(bool match, bool is_retval) const
     }
   }
 
+  if (symbol_type == SymbolType::HexSymbol) {
+    return simple_type;
+  }
+
   std::ostringstream stream;
 
   stream << str_class_properties(match);
@@ -1247,6 +1251,11 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
       bad_code(c, "special name '_'");
     }
     break;
+   case '@':
+    t->symbol_type = SymbolType::HexSymbol;
+    advance_to_next_char();
+    t->simple_type = get_literal();
+    return t;
    default:
     bad_code(c, "special name");
   }
@@ -1899,6 +1908,9 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
         // namespace terms in a fully qualified name...   Perhaps some code cleanup is needed?
         if (first || get_current_char() == '?') {
           get_special_name_code(t);
+          if (t->symbol_type == SymbolType::HexSymbol) {
+            return t;
+          }
         }
         else {
           // Wow is this ugly.  But it looks like Microsoft really did it this way, so what
@@ -2145,7 +2157,6 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
 
   auto t = std::make_shared<DemangledType>();
   get_fully_qualified_name(t, false);
-  progress("here");
   if (t->symbol_type == SymbolType::Unspecified) {
     get_symbol_type(t);
   }
@@ -2165,6 +2176,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     return t;
    case SymbolType::String:
    case SymbolType::GlobalThing1:
+   case SymbolType::HexSymbol:
     return t;
    case SymbolType::GlobalObject:
    case SymbolType::StaticClassMember:

@@ -46,6 +46,9 @@ void JsonOutput::handle_symbol_type(Object & obj, DemangledType const & sym) con
    case SymbolType::MethodThunk:
     symbol_type = "method thunk";
     break;
+   case SymbolType::HexSymbol:
+    symbol_type = "hex symbol";
+    break;
   }
   obj.add("symbol_type", symbol_type);
 }

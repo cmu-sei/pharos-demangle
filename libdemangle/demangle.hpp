@@ -28,7 +28,8 @@ enum class SymbolType {
   String,
   VtorDisp,
   StaticGuard,
-  MethodThunk
+  MethodThunk,
+  HexSymbol
 };
 
 enum class Scope {
