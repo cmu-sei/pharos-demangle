@@ -57,6 +57,7 @@ class VisualStudioDemangler
   DemangledTypePtr & get_function(DemangledTypePtr & t);
   DemangledTypePtr & get_storage_class(DemangledTypePtr & t);
   DemangledTypePtr & get_storage_class_modifiers(DemangledTypePtr & t);
+  DemangledTypePtr & get_managed_properties(DemangledTypePtr & t, int & cli_array);
   DemangledTypePtr & get_real_enum_type(DemangledTypePtr & t);
   DemangledTypePtr & get_rtti(DemangledTypePtr & t);
   DemangledTypePtr & process_return_storage_class(DemangledTypePtr & t);
@@ -497,6 +498,7 @@ DemangledType::str(bool match, bool is_retval) const
   }
 
   std::ostringstream stream;
+
   stream << str_class_properties(match);
 
   // Partially conversion from old code and partially simplification of this method.
@@ -803,6 +805,47 @@ VisualStudioDemangler::update_simple_type(DemangledTypePtr & t, const std::strin
 }
 
 DemangledTypePtr &
+VisualStudioDemangler::get_managed_properties(DemangledTypePtr & t, int & cli_array)
+{
+  cli_array = 0;
+
+  char c = get_current_char();
+
+  if (c == '$') {
+    c = get_next_char();
+    switch (c) {
+     case 'A':
+      t->is_gc = true;
+      break;
+     case 'B': // __pin  BUG!!! Unimplemented!
+      t->is_pin = true;
+      break;
+     case '0': case '1': case '2':
+      {
+        // C++/CLI array
+        auto xdigit = [this](char d) -> int {
+                        if (d >= '0' && d <= '9')
+                          return (d - '0');
+                        else if (d >= 'a' && d <= 'f')
+                          return (d - 'a');
+                        else if (d >= 'A' && d <= 'F')
+                          return (d - 'A');
+                        else bad_code(d, "hex digit"); };
+        int val = xdigit(c) * 16;
+        c = get_next_char();
+        val += xdigit(c);
+        cli_array = val ? val : -1;
+      }
+      break;
+     default:
+      bad_code(c, "managed C++ property");
+    }
+    advance_to_next_char();
+  }
+  return t;
+}
+
+DemangledTypePtr &
 VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
 {
   char c = get_current_char();
@@ -837,22 +880,6 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
     }
   }
 
-  // Handle managed C++ properties
-  if (c == '$') {
-    c = get_next_char();
-    switch (c) {
-     case 'A':
-      t->is_gc = true;
-      break;
-     case 'B': // __pin  BUG!!! Unimplemented!
-      t->is_pin = true;
-      break;
-     default:
-      bad_code(c, "managed C++ property");
-    }
-    advance_to_next_char();
-  }
-
   return t;
 }
 
@@ -862,6 +889,8 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
 {
   advance_to_next_char();
   get_storage_class_modifiers(t);
+  int handling_cli_array;
+  get_managed_properties(t, handling_cli_array);
 
   progress("pointer storage class");
   // Const and volatile for the thing being pointed to (or referenced).
@@ -893,6 +922,21 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
     type_stack.push_back(t);
     stack_debug(type_stack, type_stack.size()-1, "type");
   }
+
+  if (handling_cli_array) {
+    auto at = std::make_shared<DemangledType>();
+    at->name.push_back(std::make_shared<Namespace>("cli"));
+    at->name.push_back(std::make_shared<Namespace>("array"));
+    at->template_parameters.push_back(
+      std::make_shared<DemangledTemplateParameter>(t->inner_type));
+    if (handling_cli_array > 1) {
+      at->template_parameters.push_back(
+        std::make_shared<DemangledTemplateParameter>(handling_cli_array));
+    }
+    t->inner_type = at;
+    t->is_gc = true;
+  }
+
   return t;
 }
 
@@ -1627,6 +1671,11 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
 DemangledTypePtr & VisualStudioDemangler::process_method_storage_class(DemangledTypePtr & t)
 {
   get_storage_class_modifiers(t);
+  int handling_cli_array;
+  get_managed_properties(t, handling_cli_array);
+  if (handling_cli_array) {
+    general_error("unexpected cli array");
+  }
 
   char c = get_current_char();
   switch(c) {
