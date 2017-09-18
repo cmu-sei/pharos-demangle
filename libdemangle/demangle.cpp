@@ -2201,7 +2201,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     if (t->method_property != MethodProperty::Static) {
       process_method_storage_class(t); // Table 15
     }
-    // Fall through to global function.
+    // Fall through
    case SymbolType::GlobalFunction:
     return get_function(t);
    case SymbolType::StaticGuard:
