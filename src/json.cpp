@@ -69,44 +69,110 @@ class Bool : public Simple<bool> {
   }
 };
 
-std::ostream & output_string(std::ostream & stream, std::string const & s) {
-    stream << '"';
-    for (auto c : s) {
-      const char *v;
-      switch(c) {
-       case '"':
-        v = "\\\""; break;
-       case '\\':
-        v = "\\\\"; break;
-       case '/':
-        v = "\\/";  break;
-       case '\b':
-        v = "\\b";  break;
-       case '\f':
-        v = "\\f";  break;
-       case '\n':
-        v = "\\n";  break;
-       case '\r':
-        v = "\\r";  break;
-       case '\t':
-        v = "\\t";  break;
-       default:
-        // This should be unicode aware, but not yet
-        if (std::iscntrl(c)) {
-          auto flags = stream.flags();
-          auto fill = stream.fill('0');
-          stream << "\\u00" << std::setw(2) << std::hex << unsigned(c);
-          stream.flags(flags);
-          stream.fill(fill);
-          continue;
+namespace {
+// Return whether this is a valid utf-8 string.  If it is is, return 0.  If not, return -1.  If
+// it is valid, but truncated, return the number of bytes that need to be truncated to make the
+// string valid.
+int is_valid_utf8(std::string const & s) {
+  std::string::size_type count = 0;
+  int trailing_chars = 0;
+  int tcc = 0;
+  int nonzero = 0;
+  uint32_t val = 0;
+  for (unsigned char c : s) {
+    if (c & 0x80) {
+      if (trailing_chars) {
+        if ((c & 0x40) || (nonzero && !(c & nonzero))) {
+          return -1;
         }
-        stream.put(c);
+        val = (val << 6) | (c & 0x3f);
+        nonzero = 0;
+        ++tcc;
+        if (trailing_chars == tcc) {
+          if (val > 0x10ffff) {
+            return -1;
+          }
+          trailing_chars = 0; tcc = 0;
+        }
+      } else if (!(c & 0x40)) {
+        return -1;
+      } else if ((c & 0xe0) == 0xc0) {
+        if (!(c & 0x1e)) {
+          return -1;
+        }
+        val = c & 0x1f;
+        nonzero = 0;
+        trailing_chars = 1; tcc = 0; ++count;
+      } else if ((c & 0xf0) == 0xe0) {
+        val = c & 0x0f;
+        nonzero = val ? 0 : 0x20;
+        trailing_chars = 2; tcc = 0; ++count;
+      } else if ((c & 0xf8) == 0xf0) {
+        val = c & 0x07;
+        nonzero = val ? 0 : 0x30;
+        trailing_chars = 3; tcc = 0; ++count;
+      } else {
+        return -1;
+      }
+    } else if (trailing_chars) {
+      return -1;
+    } else {
+      val = c;
+    }
+  }
+
+  if (trailing_chars) {
+    return count > 1 ? tcc + 1 : -1;
+  }
+
+  return 0;
+}
+
+std::ostream & output_string(std::ostream & stream, std::string const & s)
+{
+  stream << '"';
+  auto ut = is_valid_utf8(s);
+  auto e = s.size();
+  if (ut >= 0) {
+    e -= ut;
+  }
+  for (std::string::size_type i = 0; i < e; ++i) {
+    unsigned char c = s[i];
+    const char *v;
+    switch(c) {
+     case '"':
+      v = "\\\""; break;
+     case '\\':
+      v = "\\\\"; break;
+     case '/':
+      v = "\\/";  break;
+     case '\b':
+      v = "\\b";  break;
+     case '\f':
+      v = "\\f";  break;
+     case '\n':
+      v = "\\n";  break;
+     case '\r':
+      v = "\\r";  break;
+     case '\t':
+      v = "\\t";  break;
+     default:
+      if (std::iscntrl(c) || ((ut < 0) && c & 0x80)) {
+        auto flags = stream.flags();
+        auto fill = stream.fill('0');
+        stream << "\\u00" << std::setw(2) << std::hex << unsigned(c);
+        stream.flags(flags);
+        stream.fill(fill);
         continue;
       }
-      stream << v;
+      stream.put(c);
+      continue;
     }
-    return stream << '"';
+    stream << v;
+  }
+  return stream << '"';
 }
+} // unnamed namespace
 
 class String : public Simple<std::string> {
  public:
