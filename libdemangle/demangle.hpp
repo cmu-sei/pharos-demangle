@@ -18,7 +18,6 @@ class Error : public std::runtime_error {
 
 enum class SymbolType {
   Unspecified,
-  Namespace,
   StaticClassMember,
   GlobalObject,
   GlobalFunction,
@@ -200,7 +199,6 @@ class DemangledType {
   bool is_ctor = false;
   bool is_dtor = false;
   std::string method_name;
-  FullyQualifiedName class_name;
 
   // The fully qualified name of a exported variable.   Names are still messy. :-(
   FullyQualifiedName instance_name;

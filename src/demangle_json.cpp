@@ -13,9 +13,6 @@ void JsonOutput::handle_symbol_type(Object & obj, DemangledType const & sym) con
    case SymbolType::Unspecified:
     return;
     // Fall through
-   case SymbolType::Namespace:
-    symbol_type = "namespace";
-    break;
    case SymbolType::StaticClassMember:
     symbol_type = "static class member";
     break;
@@ -240,7 +237,6 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   if (!sym.method_name.empty()) {
     obj.add("method_name", sym.method_name);
   }
-  add_list("class_name", sym.class_name);
   add_list("instance_name", sym.instance_name);
   if (sym.retval) {
     obj.add("retval", raw(*sym.retval));
