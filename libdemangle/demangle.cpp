@@ -313,6 +313,14 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
       stream << rendered;
       stream << "'";
     }
+    else if (ndt->is_ctor || ndt->is_dtor) {
+      assert(nit != the_name.begin());
+      if (ndt->is_dtor) {
+        stream << '~';
+      }
+      stream << (*(nit - 1))->str(match);
+      stream << ndt->str_template_parameters(match);
+    }
     else {
       stream << ndt->str(match);
     }
@@ -334,9 +342,6 @@ DemangledType::str_class_name(bool match) const
   if (is_ctor || is_dtor) {
     stream << "::";
     if (is_dtor) stream << "~";
-    if (template_parameters.size() != 0) {
-      clsname = &*template_parameters.back()->type;
-    }
 
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
@@ -375,9 +380,6 @@ DemangledType::get_method_name() const
   const DemangledType* clsname = this;
   if (is_ctor || is_dtor) {
     if (is_dtor) stream << "~";
-    if (template_parameters.size() != 0) {
-      clsname = &*template_parameters.back()->type;
-    }
 
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
@@ -605,6 +607,10 @@ DemangledType::str(bool match, bool is_retval) const
       }
       stream << str_pointer_punctuation(match);
     }
+  } else if (is_func && inner_type) {
+    stream << inner_type->retval->str(match, true);
+    stream << ' ' << inner_type->calling_convention;
+    stream << inner_type->str_function_arguments(match);
   }
 
   stream << str_distance(match);
@@ -1907,10 +1913,12 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
         // that the parsing of the first term is definitely a different routine than the
         // namespace terms in a fully qualified name...   Perhaps some code cleanup is needed?
         if (first || get_current_char() == '?') {
-          get_special_name_code(t);
-          if (t->symbol_type == SymbolType::HexSymbol) {
-            return t;
+          auto tt = std::make_shared<DemangledType>();
+          get_special_name_code(tt);
+          if (tt->symbol_type == SymbolType::HexSymbol) {
+            return t = tt;
           }
+          t->name.insert(t->name.begin(), tt);
         }
         else {
           // Wow is this ugly.  But it looks like Microsoft really did it this way, so what
