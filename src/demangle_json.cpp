@@ -159,6 +159,16 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
                     }
                   };
 
+  auto add_rlist = [&obj, this](char const * name, FullyQualifiedName const & names) {
+                    if (!names.empty()) {
+                      auto nlist = builder.array();
+                      for (auto i = names.rbegin(); i != names.rend(); ++i) {
+                        nlist->add(raw(**i));
+                      }
+                      obj.add(name, std::move(nlist));
+                    }
+                   };
+
   auto add_list = [&obj, this](char const * name, FullyQualifiedName const & names) {
                     if (!names.empty()) {
                       auto nlist = builder.array();
@@ -207,7 +217,7 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   if (!sym.simple_type.empty()) {
     obj.add("simple_type", sym.simple_type);
   }
-  add_list("name", sym.name);
+  add_rlist("name", sym.name);
   add_list("com_interface", sym.com_interface);
   if (!sym.template_parameters.empty()) {
     auto params = builder.array();

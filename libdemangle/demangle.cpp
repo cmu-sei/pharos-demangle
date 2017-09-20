@@ -148,11 +148,10 @@ void DemangledType::debug_type(bool match, size_t indent, std::string label) con
   if (retval) retval->debug_type(match, indent + 1, "RVal");
 
   size_t i = 0;
-  for (const auto & n : name) {
-    n->debug_type(match, indent + 1, boost::str(boost::format("Name %d") % i));
+  for (auto it = name.rbegin(); it != name.rend(); ++it) {
+    (*it)->debug_type(match, indent + 1, boost::str(boost::format("Name %d") % i));
     i++;
   }
-
 
   i = 0;
   for (const auto & p : template_parameters) {
@@ -297,8 +296,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
 {
   std::ostringstream stream;
 
-  FullyQualifiedName::const_iterator nit;
-  for (nit = the_name.begin(); nit != the_name.end(); nit++) {
+  for (auto nit = the_name.rbegin(); nit != the_name.rend(); nit++) {
     auto & ndt = *nit;
     // Some names have things that require extra quotations...
     if (ndt->is_embedded) {
@@ -314,7 +312,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
       stream << "'";
     }
     else if (ndt->is_ctor || ndt->is_dtor) {
-      assert(nit != the_name.begin());
+      assert(nit != the_name.rbegin());
       if (ndt->is_dtor) {
         stream << '~';
       }
@@ -324,7 +322,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
     else {
       stream << ndt->str(match);
     }
-    if ((nit+1) != the_name.end()) stream << "::";
+    if ((nit+1) != the_name.rend()) stream << "::";
   }
 
   return stream.str();
@@ -345,7 +343,7 @@ DemangledType::str_class_name(bool match) const
 
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
-      stream << clsname->name.back()->str(match);
+      stream << clsname->name.front()->str(match);
     }
     else {
       stream << "ERRORNOCLASS";
@@ -383,7 +381,7 @@ DemangledType::get_method_name() const
 
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
-      stream << clsname->name.back()->str(match);
+      stream << clsname->name.front()->str(match);
     }
     else {
       stream << "ERRORNOCLASS";
@@ -395,7 +393,7 @@ DemangledType::get_method_name() const
   else {
     size_t name_size = clsname->name.size();
     if (name_size != 0) {
-      stream << clsname->name.back()->str(match);
+      stream << clsname->name.front()->str(match);
     }
   }
 
@@ -416,8 +414,7 @@ DemangledType::get_class_name() const
   size_t name_size = name.size();
   if (name_size != 0) {
     size_t pos = 0;
-    FullyQualifiedName::const_iterator nit;
-    for (nit = name.begin(); nit != name.end(); nit++) {
+    for (auto nit = name.rbegin(); nit != name.rend(); nit++) {
       auto & ndt = *nit;
       // Some names have things that require extra quotations...
       if (ndt->is_embedded) {
@@ -445,7 +442,7 @@ DemangledType::get_class_name() const
       bool has_fake_name = (method_name.size() != 0 || is_ctor || is_dtor);
       if ((pos+1) == name_size && !has_fake_name) break;
 
-      if ((nit+1) != name.end()) stream << "::";
+      if ((nit+1) != name.rend()) stream << "::";
     }
   }
 
@@ -935,8 +932,8 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
 
   if (handling_cli_array) {
     auto at = std::make_shared<DemangledType>();
-    at->name.push_back(std::make_shared<Namespace>("cli"));
     at->name.push_back(std::make_shared<Namespace>("array"));
+    at->name.push_back(std::make_shared<Namespace>("cli"));
     at->template_parameters.push_back(
       std::make_shared<DemangledTemplateParameter>(t->inner_type));
     if (handling_cli_array > 1) {
@@ -1125,8 +1122,8 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         return get_type(t, push);
        case 'T':
         advance_to_next_char();
-        t->name.push_back(std::make_shared<Namespace>("std"));
         t->name.push_back(std::make_shared<Namespace>("nullptr_t"));
+        t->name.push_back(std::make_shared<Namespace>("std"));
         return t;
        case 'V':
        case 'Z':
@@ -1196,7 +1193,7 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
      auto embedded = get_symbol();
      embedded->is_embedded = true;
      if (debug) std::cout << "The fully embedded type was:" << embedded->str() << std::endl;
-     t->name.insert(t->name.begin(), std::move(embedded));
+     t->name.push_back(std::move(embedded));
      return t;
    }
    case '_':
@@ -1901,9 +1898,9 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
       if (c == '$') {
         auto tt = std::make_shared<DemangledType>();
         get_templated_type(tt);
-        t->name.insert(t->name.begin(), tt);
+        t->name.push_back(tt);
         if (pushing) {
-          name_stack.push_back(tt);
+          name_stack.push_back(std::move(tt));
           stack_debug(name_stack, name_stack.size()-1, "name");
         }
       }
@@ -1916,9 +1913,9 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
           auto tt = std::make_shared<DemangledType>();
           get_special_name_code(tt);
           if (tt->symbol_type == SymbolType::HexSymbol) {
-            return t = tt;
+            return t = std::move(tt);
           }
-          t->name.insert(t->name.begin(), tt);
+          t->name.push_back(std::move(tt));
         }
         else {
           // Wow is this ugly.  But it looks like Microsoft really did it this way, so what
@@ -1926,7 +1923,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
           // has a leading zero digit, which is not required.  Thus it signals a strangely
           // handled "anonymous namespace" with a discarded unqie identifier.
           if (get_current_char() == 'A') {
-            t->name.insert(t->name.begin(), get_anonymous_namespace());
+            t->name.push_back(get_anonymous_namespace());
           }
           else {
             uint64_t number = get_number();
@@ -1934,19 +1931,19 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
             if (debug) std::cout << "Found numbered namespace: "
                                  << numbered_namespace << std::endl;
             auto nns = std::make_shared<Namespace>(numbered_namespace);
-            t->name.insert(t->name.begin(), std::move(nns));
+            t->name.push_back(std::move(nns));
           }
         }
       }
     }
     else if (c >= '0' && c <= '9') {
       progress("reference to symbol");
-      t->name.insert(t->name.begin(), resolve_reference(name_stack, c));
+      t->name.push_back(resolve_reference(name_stack, c));
       advance_to_next_char();
     }
     else {
       auto ns = std::make_shared<Namespace>(get_literal());
-      t->name.insert(t->name.begin(), ns);
+      t->name.push_back(ns);
       name_stack.push_back(std::move(ns));
       stack_debug(name_stack, name_stack.size()-1, "name");
     }
