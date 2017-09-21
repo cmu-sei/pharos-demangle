@@ -358,7 +358,11 @@ DemangledType::get_method_name() const
     }
   }
   else {
-    stream << method->get_pname();
+    auto & mname = method->get_pname();
+    stream << mname;
+    if (retval && mname == "operator ") {
+      stream << retval->str();
+    }
   }
 
   return stream.str();
