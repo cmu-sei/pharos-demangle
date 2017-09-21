@@ -93,13 +93,15 @@ using DemangledTemplateParameterPtr = std::shared_ptr<DemangledTemplateParameter
 typedef std::vector<DemangledTemplateParameterPtr> DemangledTemplate;
 
 class DemangledType {
+  enum class Space {PREPEND=1, APPEND=2, NONE=0, BOTH=3};
+
   // The the type a pointer, reference, refref, etc. to a function?
   bool is_func_ptr() const;
 
   std::string str_class_properties(bool match = false) const;
-  std::string str_storage_properties(bool match = false, bool is_retval = false) const;
+  std::string str_storage_properties(
+    Space space, bool match = false, bool is_retval = false) const;
   std::string str_distance(bool match = false) const;
-  std::string str_pointer_punctuation(bool match = false) const;
   std::string str_simple_type(bool match = false) const;
   std::string str_template_parameters(bool match = false) const;
   std::string str_function_arguments(bool match = false) const;

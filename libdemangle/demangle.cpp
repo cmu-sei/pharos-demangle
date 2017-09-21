@@ -211,28 +211,45 @@ std::string DemangledType::str_distance(bool match) const {
 }
 
 std::string
-DemangledType::str_storage_properties(bool match, bool is_retval) const
+DemangledType::str_storage_properties(Space space, bool match, bool is_retval) const
 {
+  std::ostringstream stream;
+  auto out = [&stream, &space](char const * s) {
+               switch (space) {
+                case Space::BOTH:
+                 space = Space::APPEND;
+                 // Fall through
+                case Space::PREPEND:
+                 stream << ' '; break;
+                case Space::NONE:
+                 space = Space::PREPEND; break;
+                case Space::APPEND: break;
+               }
+               stream << s;
+               if (space == Space::APPEND) stream << ' ';
+             };
+
   // The MSVC standard is to discard the const and volatile qualifiers on return values that
   // are pointers, references or rvalue references...  Or something like that.  This is
   // obviously a bit of a special case.  The source is allowed to have this qualifier, and the
   // mangled name codes it correctly as P/Q/R/S, so when we're not trying to match Visual
   // Studio, it's probably better to retain the qualifier.
-  if (match && (is_pointer || is_reference || is_refref) && is_retval) {
-    if (ptr64) return "__ptr64 ";
-    return "";
-  }
+  bool discard = match && (is_pointer || is_reference || is_refref) && is_retval;
 
-  if (!ptr64 && !is_const && !is_volatile) return "";
+  auto cv = [this, &out, discard]() {
+              if (is_const) out("const");
+              if (is_volatile) out("volatile");
+            };
 
-  std::ostringstream stream;
-  if (is_const) stream << "const ";
-  if (is_volatile) stream << "volatile ";
-  if (match && unaligned) stream << "__unaligned ";
-  if (match && ptr64) stream << "__ptr64 ";
-  if (match && restrict) stream << "__restrict ";
-  if (is_reference) stream << "& ";
-  if (is_refref) stream << "&& ";
+  if (!discard && (is_func || symbol_type == SymbolType::ClassMethod)) cv();
+  if (is_pointer) out(is_gc ? "^" : "*");
+  if (is_reference) out(is_gc ? "%" : "&");
+  if (is_refref) out("&&");
+  if (match && unaligned) out("__unaligned");
+  if (match && ptr64) out("__ptr64");
+  if (match && restrict) out("__restrict");
+  if (!discard && !is_func && symbol_type != SymbolType::ClassMethod) cv();
+
   return stream.str();
 }
 
@@ -241,18 +258,18 @@ DemangledType::str_function_arguments(bool match) const
 {
   std::ostringstream stream;
 
-  stream << "(";
+  stream << '(';
   // And now the arguments, as usual...
   for (FunctionArgs::const_iterator ait = args.begin(); ait != args.end(); ait++) {
     stream << (*ait)->str(match);
     if ((ait+1) != args.end()) {
-      stream << ",";
-      if (!match) stream << " ";
+      stream << ',';
+      if (!match) stream << ' ';
     }
   }
 
-  stream << ")";
-  if (!match) stream << " ";
+  stream << ')';
+  if (!match) stream << ' ';
   return stream.str();
 }
 
@@ -263,7 +280,7 @@ DemangledType::str_template_parameters(bool match) const
 
   if (template_parameters.size() != 0) {
     std::string tpstr;
-    stream << "<";
+    stream << '<';
     DemangledTemplate::const_iterator pit;
     for (pit = template_parameters.begin(); pit != template_parameters.end(); pit++) {
       auto tp = *pit;
@@ -274,15 +291,15 @@ DemangledType::str_template_parameters(bool match) const
       }
       if (next != template_parameters.end() && *(next)) {
         if (!match) stream << ", ";
-        else stream << ",";
+        else stream << ',';
       }
     }
 
     if (tpstr.size() > 0 && tpstr.back() == '>') {
-      stream << " ";
+      stream << ' ';
     }
 
-    stream << ">";
+    stream << '>';
   }
 
   return stream.str();
@@ -306,7 +323,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
     auto & ndt = *nit;
     // Some names have things that require extra quotations...
     if (ndt->is_embedded) {
-      stream << "`";
+      stream << '`';
       std::string rendered = ndt->str(match);
       // Some nasty whitespace kludging here.  If the last character is a space, remove it.
       // There's almost certainly a better way to do this.  Perhaps all types ought to remove
@@ -315,7 +332,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
         rendered.pop_back();
       }
       stream << rendered;
-      stream << "'";
+      stream << '\'';
     }
     else if (ndt->is_ctor || ndt->is_dtor) {
       if (ndt->is_dtor) {
@@ -349,7 +366,7 @@ DemangledType::get_method_name() const
   std::ostringstream stream;
   auto & method = name.front();
   if (method->is_ctor || method->is_dtor) {
-    if (method->is_dtor) stream << "~";
+    if (method->is_dtor) stream << '~';
 
     if (name.size() < 2) {
       stream << "ERRORNOCLASS";
@@ -386,15 +403,6 @@ DemangledType::str_array(UNUSED bool match) const
 }
 
 std::string
-DemangledType::str_pointer_punctuation(UNUSED bool match) const
-{
-  if (is_refref) return "&&";
-  if (is_pointer) return is_gc ? "^" : "*";
-  if (is_reference) return is_gc ? "%" : "&";
-  return "";
-}
-
-std::string
 DemangledType::str_simple_type(UNUSED bool match) const
 {
   std::ostringstream stream;
@@ -402,7 +410,7 @@ DemangledType::str_simple_type(UNUSED bool match) const
   if (simple_type.size() != 0) {
     stream << simple_type;
     // Add a space after union, struct, class and enum?
-    if (name.size() != 0) stream << " ";
+    if (name.size() != 0) stream << ' ';
   }
   return stream.str();
 }
@@ -460,11 +468,11 @@ DemangledType::str(bool match, bool is_retval) const
       }
       else {
         retstr = retval->str(match, true);
-        if (retstr.size() > 0) stream << retstr << " ";
+        if (retstr.size() > 0) stream << retstr << ' ';
       }
     }
 
-    stream << calling_convention << " ";
+    stream << calling_convention << ' ';
     stream << str_name_qualifiers(name, match);
     if (retval && get_pname() == "operator ") {
       stream << retval->str(match);
@@ -475,15 +483,14 @@ DemangledType::str(bool match, bool is_retval) const
       stream << "`adjustor{" << n2 << "}' ";
     }
     stream << str_function_arguments(match);
+    stream << str_storage_properties(Space::APPEND, match);
 
     if (retval && retval->is_func_ptr() && get_pname() != "operator ") {
-      stream << ")";
+      stream << ')';
       // The name of the function is not present...
       stream << retval->inner_type->str_function_arguments(match);
-      stream << retval->inner_type->str_storage_properties(match);
+      stream << retval->inner_type->str_storage_properties(Space::APPEND, match);
     }
-
-    stream << str_storage_properties(match);
 
     return stream.str();
   }
@@ -508,7 +515,7 @@ DemangledType::str(bool match, bool is_retval) const
     return stream.str();
   }
 
-  if (is_pointer || is_reference) {
+  if (is_pointer || is_reference || is_refref) {
     if (inner_type == nullptr) {
       std::cerr << "Unparse error: Inner type is not set for pointer or reference!" << std::endl;
     }
@@ -524,13 +531,12 @@ DemangledType::str(bool match, bool is_retval) const
         }
       }
       else if (!inner_type->is_member) {
-        stream << inner_type->str(match) << " ";
+        stream << inner_type->str(match);
       }
 
       if (inner_type->is_member) {
         stream << str_name_qualifiers(inner_type->name, match) << "::";
       }
-      stream << str_pointer_punctuation(match);
     }
   } else if (is_func && inner_type) {
     stream << inner_type->retval->str(match, true);
@@ -543,32 +549,26 @@ DemangledType::str(bool match, bool is_retval) const
   stream << str_name_qualifiers(name, match);
   stream << str_array(match);
   stream << str_template_parameters(match);
-
-  // Ugly. :-( Move the space from after the storage keywords to before the keywords.
-  std::string spstr = str_storage_properties(match, is_retval);
-  if (!spstr.empty()) {
-    spstr.pop_back();
-    stream << " " << spstr;
-  }
+  auto space = (inner_type && (inner_type->is_member || (inner_type->is_func && match)))
+               ? Space::NONE : Space::PREPEND;
+  stream << str_storage_properties(space, match, is_retval);
 
   // If the symbol is a global object or a static class member, the name of the object (not the
   // type) will be in the instance_name and not the ordinary name field.
   if (symbol_type == SymbolType::GlobalObject || symbol_type == SymbolType::StaticClassMember
       || symbol_type == SymbolType::GlobalThing1 || symbol_type == SymbolType::GlobalThing2)
   {
-    stream << " ";
+    stream << ' ';
     stream << str_name_qualifiers(instance_name, match);
   }
 
   // This is kind of ugly and hackish...  It's the second half of the pointer to function
   // logic.  There's probably a cleaner way to do this using a different kind of recursion.
   if (!is_retval && is_func_ptr()) {
-    //stream << "|";
-    stream << ")";
+    stream << ')';
     // The name of the function is not present...
     stream << inner_type->str_function_arguments(match);
-    stream << inner_type->str_storage_properties(match);
-    //stream << "|";
+    stream << inner_type->str_storage_properties(Space::APPEND, match);
   }
 
   if (symbol_type == SymbolType::StaticGuard) {
@@ -616,7 +616,7 @@ std::string DemangledTemplateParameter::str(bool match) const {
     {
       stream << '{' << type->str(match) << ',' << constant_value << '}';
     } else {
-      stream << "std::addressof(" << type->str(match) << ')';
+      stream << '&' << type->str(match);
     }
   } else {
     return type->str(match);
@@ -833,9 +833,6 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   if (t->inner_type->is_func) {
     progress("function pointed to");
     get_function(t->inner_type);
-    // if (t->inner_type->is_member && !t->inner_type->is_based) {
-    //   t->inner_type->calling_convention = "__thiscall";
-    // }
   }
   else {
     progress("type pointed to");
@@ -1021,12 +1018,10 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
       c = get_next_char();
       switch (c) {
        case 'Q':
-        t->is_reference = true;
         t->is_refref = true;
         return get_pointer_type(t, push);
        case 'R':
         // Untested against undname
-        t->is_reference = true;
         t->is_volatile = true;
         t->is_refref = true;
         return get_pointer_type(t, push);
