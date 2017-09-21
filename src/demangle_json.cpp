@@ -244,9 +244,6 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   }
   add_bool("is_ctor", sym.is_ctor);
   add_bool("is_dtor", sym.is_dtor);
-  if (!sym.method_name.empty()) {
-    obj.add("method_name", sym.method_name);
-  }
   add_list("instance_name", sym.instance_name);
   if (sym.retval) {
     obj.add("retval", raw(*sym.retval));

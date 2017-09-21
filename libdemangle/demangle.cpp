@@ -102,9 +102,6 @@ DemangledTypePtr visual_studio_demangle(const std::string & mangled, bool debug)
   return demangler.analyze();
 }
 
-DemangledType::DemangledType() = default;
-
-
 std::string quote_string(const std::string & input)
 {
   static auto special_chars = "\"\\\a\b\f\n\r\t\v";
@@ -292,11 +289,20 @@ DemangledType::str_template_parameters(bool match) const
 }
 
 std::string
-DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool match) const
+DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool match,
+                                   bool except_last) const
 {
+  if (the_name.empty()) {
+    return std::string();
+  }
+
   std::ostringstream stream;
 
-  for (auto nit = the_name.rbegin(); nit != the_name.rend(); nit++) {
+  auto e = the_name.rend();
+  if (except_last) --e;
+  auto const b = the_name.rbegin();
+  for (auto nit = b; nit != e; ++nit) {
+    if (nit != b) stream << "::";
     auto & ndt = *nit;
     // Some names have things that require extra quotations...
     if (ndt->is_embedded) {
@@ -312,141 +318,56 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
       stream << "'";
     }
     else if (ndt->is_ctor || ndt->is_dtor) {
-      assert(nit != the_name.rbegin());
       if (ndt->is_dtor) {
         stream << '~';
       }
-      stream << (*(nit - 1))->str(match);
+      if (nit == the_name.rbegin()) {
+        stream << "ERRORNOCLASS";
+      } else if (match) {
+        stream << (*(std::prev(nit)))->str(match);
+      } else {
+        stream << (*(std::prev(nit)))->get_pname();
+      }
       stream << ndt->str_template_parameters(match);
     }
     else {
       stream << ndt->str(match);
     }
-    if ((nit+1) != the_name.rend()) stream << "::";
   }
 
   return stream.str();
 }
 
-// This should eventually me merged with str_name_qualifiers().  The code should also get
-// shared between functions and non-functions, since there's a lot of similarity.  In summary,
-// there's a lot of cleanup needed here, but it's not related to my immediate problem.
-std::string
-DemangledType::str_class_name(bool match) const
-{
-  std::ostringstream stream;
-
-  const DemangledType* clsname = this;
-  if (is_ctor || is_dtor) {
-    stream << "::";
-    if (is_dtor) stream << "~";
-
-    size_t name_size = clsname->name.size();
-    if (name_size != 0) {
-      stream << clsname->name.front()->str(match);
-    }
-    else {
-      stream << "ERRORNOCLASS";
-    }
-  }
-  else if (method_name.size() != 0) {
-    // Some methods don't have class names (e.g. new and delete)...
-    if (clsname->name.size() > 0) {
-      stream << "::";
-    }
-    stream << method_name;
-
-    // And since we deferred outputting the return type for "operator <type>" earlier, we need
-    // to do it here...
-    if (method_name == "operator " && retval) {
-      stream << retval->str(match);
-    }
-  }
-
-  return stream.str();
-}
-
-// Public API to get the method name used by the OOAnalzyer.  This should get cleaned up so
-// that it just returns the method_name member.  It's very similar to str_class_name, but lacks
-// extra '::'s in the output.
+// Public API to get the method name used by the OOAnalzyer.
 std::string
 DemangledType::get_method_name() const
 {
-  std::ostringstream stream;
-
-  bool match = false;
-  const DemangledType* clsname = this;
-  if (is_ctor || is_dtor) {
-    if (is_dtor) stream << "~";
-
-    size_t name_size = clsname->name.size();
-    if (name_size != 0) {
-      stream << clsname->name.front()->str(match);
-    }
-    else {
-      stream << "ERRORNOCLASS";
-    }
+  if (name.empty()) {
+    return std::string();
   }
-  else if (method_name.size() != 0) {
-    stream << method_name;
+
+  std::ostringstream stream;
+  auto & method = name.front();
+  if (method->is_ctor || method->is_dtor) {
+    if (method->is_dtor) stream << "~";
+
+    if (name.size() < 2) {
+      stream << "ERRORNOCLASS";
+    } else {
+      stream << name[1]->get_pname();
+    }
   }
   else {
-    size_t name_size = clsname->name.size();
-    if (name_size != 0) {
-      stream << clsname->name.front()->str(match);
-    }
+    stream << method->get_pname();
   }
 
   return stream.str();
 }
 
-// Public API to get class name used by the OOAnalzyer.  This has sort-of turned into a 'do
-// what oosolver needs' method. :-(
 std::string
 DemangledType::get_class_name() const
 {
-  std::ostringstream stream;
-
-  bool match = false;
-
-  // This is now largely a copy of str_name_qualifiers(), so it's the third version of that
-  // function. :-( This version needs to exclude the method name when it's a non-standard name.
-  size_t name_size = name.size();
-  if (name_size != 0) {
-    size_t pos = 0;
-    for (auto nit = name.rbegin(); nit != name.rend(); nit++) {
-      auto & ndt = *nit;
-      // Some names have things that require extra quotations...
-      if (ndt->is_embedded) {
-        stream << "`";
-        std::string rendered = ndt->str(match);
-        // Some nasty whitespace kludging here.  If the last character is a space, remove it.
-        // There's almost certainly a better way to do this.  Perhaps all types ought to remove
-        // their own trailing spaces?
-        if (rendered.size() > 1 && rendered.back() == ' ') {
-          rendered.pop_back();
-        }
-        stream << rendered;
-        // This quote is mismatched because Cory didn't want to cause problems for Prolog.
-        stream << "`";
-      }
-      else {
-        stream << ndt->str(match);
-      }
-      pos++;
-
-      // This is very confusing. :-( Currently the method name is in the fully qualified name
-      // if it's user-supplied name, and it's in method name if it's any of the special names
-      // except for constructors and destructors.  We didn't put the name in the method_name
-      // field for contructors and destructors because we didn't know the class name yet!
-      bool has_fake_name = (method_name.size() != 0 || is_ctor || is_dtor);
-      if ((pos+1) == name_size && !has_fake_name) break;
-
-      if ((nit+1) != name.rend()) stream << "::";
-    }
-  }
-
-  return stream.str();
+  return str_name_qualifiers(name, false, true);
 }
 
 std::string
@@ -480,6 +401,15 @@ DemangledType::str_simple_type(UNUSED bool match) const
     if (name.size() != 0) stream << " ";
   }
   return stream.str();
+}
+
+std::string const &
+DemangledType::get_pname() const
+{
+  if (name.empty()) {
+    return simple_type;
+  }
+  return name.front()->get_pname();
 }
 
 std::string
@@ -518,26 +448,23 @@ DemangledType::str(bool match, bool is_retval) const
     // method name, but is _NOT_ explicitly part of the type... :-( Increasingly it looks like
     // we should precompute where we want the retval to be rendered, and then emit it only
     // where we decided.
-    if (retval && method_name != "operator ") {
+    if (retval && get_pname() != "operator ") {
       std::string retstr;
       if (retval->is_func_ptr()) {
         retstr = retval->str(match, true);
-        //stream << "!";
         if (retstr.size() > 0) stream << retstr;
-        //stream << "!";
       }
       else {
         retstr = retval->str(match, true);
-        //stream << "!";
         if (retstr.size() > 0) stream << retstr << " ";
-        //stream << "!";
       }
     }
 
     stream << calling_convention << " ";
     stream << str_name_qualifiers(name, match);
-    // str_class_name() currently includes the fixes for moving the retval on "operator ".
-    stream << str_class_name(match);
+    if (retval && get_pname() == "operator ") {
+      stream << retval->str(match);
+    }
     if (match && symbol_type == SymbolType::VtorDisp) {
       stream << "`vtordisp{" << n1 << ',' << n2 << "}' ";
     } else if (match && method_property == MethodProperty::Thunk) {
@@ -545,13 +472,11 @@ DemangledType::str(bool match, bool is_retval) const
     }
     stream << str_function_arguments(match);
 
-    if (retval && retval->is_func_ptr() && method_name != "operator ") {
-      //stream << "|";
+    if (retval && retval->is_func_ptr() && get_pname() != "operator ") {
       stream << ")";
       // The name of the function is not present...
       stream << retval->inner_type->str_function_arguments(match);
       stream << retval->inner_type->str_storage_properties(match);
-      //stream << "|";
     }
 
     stream << str_storage_properties(match);
@@ -562,7 +487,6 @@ DemangledType::str(bool match, bool is_retval) const
   if (symbol_type == SymbolType::MethodThunk) {
     stream << ' ' << calling_convention << ' ';
     stream << str_name_qualifiers(name, match);
-    stream << str_class_name(match);
     if (match) {
       stream << '{' << n1 << ",{flat}}' }'";
     }
@@ -573,7 +497,7 @@ DemangledType::str(bool match, bool is_retval) const
     if (match) {
       return simple_type;
     }
-    stream << inner_type->str() << '[' << n1 << "] = " << quote_string(method_name);
+    stream << inner_type->str() << '[' << n1 << "] = " << quote_string(get_pname());
     if (n1 > 32) {
       stream << "...";
     }
@@ -625,18 +549,11 @@ DemangledType::str(bool match, bool is_retval) const
 
   // If the symbol is a global object or a static class member, the name of the object (not the
   // type) will be in the instance_name and not the ordinary name field.
-  if (symbol_type == SymbolType::GlobalObject || symbol_type == SymbolType::StaticClassMember ||
-      symbol_type == SymbolType::GlobalThing1 || symbol_type == SymbolType::GlobalThing2) {
+  if (symbol_type == SymbolType::GlobalObject || symbol_type == SymbolType::StaticClassMember
+      || symbol_type == SymbolType::GlobalThing1 || symbol_type == SymbolType::GlobalThing2)
+  {
     stream << " ";
     stream << str_name_qualifiers(instance_name, match);
-    if (symbol_type == SymbolType::GlobalThing1 || symbol_type == SymbolType::GlobalThing2) {
-      // This logic is messy.  GlobalThing1 sometimes has no method name, and therefore neeeds no
-      // ::, but is it really the case the GlobalThing1 _never_ has a method name?  Also related
-      // to str_class_name().
-      if (method_name.size() > 0) {
-        stream << "::" << method_name;
-      }
-    }
   }
 
   // This is kind of ugly and hackish...  It's the second half of the pointer to function
@@ -651,8 +568,8 @@ DemangledType::str(bool match, bool is_retval) const
   }
 
   if (symbol_type == SymbolType::StaticGuard) {
-    if (method_name.size() > 0) {
-      stream << "::" << method_name;
+    if (!name.empty()) {
+      stream << "::";
     }
     stream << '{' << n1 << '}';
     if (match) {
@@ -1155,40 +1072,40 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
   switch(c) {
    case '0': t->is_ctor = true; break;
    case '1': t->is_dtor = true; break;
-   case '2': t->method_name = "operator new"; break;
-   case '3': t->method_name = "operator delete"; break;
-   case '4': t->method_name = "operator="; break;
-   case '5': t->method_name = "operator>>"; break;
-   case '6': t->method_name = "operator<<"; break;
-   case '7': t->method_name = "operator!"; break;
-   case '8': t->method_name = "operator=="; break;
-   case '9': t->method_name = "operator!="; break;
-   case 'A': t->method_name = "operator[]"; break;
-   case 'B': t->method_name = "operator "; break; // missing logic?
-   case 'C': t->method_name = "operator->"; break;
-   case 'D': t->method_name = "operator*"; break;
-   case 'E': t->method_name = "operator++"; break;
-   case 'F': t->method_name = "operator--"; break;
-   case 'G': t->method_name = "operator-"; break;
-   case 'H': t->method_name = "operator+"; break;
-   case 'I': t->method_name = "operator&"; break;
-   case 'J': t->method_name = "operator->*"; break;
-   case 'K': t->method_name = "operator/"; break;
-   case 'L': t->method_name = "operator%"; break;
-   case 'M': t->method_name = "operator<"; break;
-   case 'N': t->method_name = "operator<="; break;
-   case 'O': t->method_name = "operator>"; break;
-   case 'P': t->method_name = "operator>="; break;
-   case 'Q': t->method_name = "operator,"; break;
-   case 'R': t->method_name = "operator()"; break;
-   case 'S': t->method_name = "operator~"; break;
-   case 'T': t->method_name = "operator^"; break;
-   case 'U': t->method_name = "operator|"; break;
-   case 'V': t->method_name = "operator&&"; break;
-   case 'W': t->method_name = "operator||"; break;
-   case 'X': t->method_name = "operator*="; break;
-   case 'Y': t->method_name = "operator+="; break;
-   case 'Z': t->method_name = "operator-="; break;
+   case '2': t->add_name("operator new"); break;
+   case '3': t->add_name("operator delete"); break;
+   case '4': t->add_name("operator="); break;
+   case '5': t->add_name("operator>>"); break;
+   case '6': t->add_name("operator<<"); break;
+   case '7': t->add_name("operator!"); break;
+   case '8': t->add_name("operator=="); break;
+   case '9': t->add_name("operator!="); break;
+   case 'A': t->add_name("operator[]"); break;
+   case 'B': t->add_name("operator "); break; // missing logic?
+   case 'C': t->add_name("operator->"); break;
+   case 'D': t->add_name("operator*"); break;
+   case 'E': t->add_name("operator++"); break;
+   case 'F': t->add_name("operator--"); break;
+   case 'G': t->add_name("operator-"); break;
+   case 'H': t->add_name("operator+"); break;
+   case 'I': t->add_name("operator&"); break;
+   case 'J': t->add_name("operator->*"); break;
+   case 'K': t->add_name("operator/"); break;
+   case 'L': t->add_name("operator%"); break;
+   case 'M': t->add_name("operator<"); break;
+   case 'N': t->add_name("operator<="); break;
+   case 'O': t->add_name("operator>"); break;
+   case 'P': t->add_name("operator>="); break;
+   case 'Q': t->add_name("operator,"); break;
+   case 'R': t->add_name("operator()"); break;
+   case 'S': t->add_name("operator~"); break;
+   case 'T': t->add_name("operator^"); break;
+   case 'U': t->add_name("operator|"); break;
+   case 'V': t->add_name("operator&&"); break;
+   case 'W': t->add_name("operator||"); break;
+   case 'X': t->add_name("operator*="); break;
+   case 'Y': t->add_name("operator+="); break;
+   case 'Z': t->add_name("operator-="); break;
    case '?': {
      auto embedded = get_symbol();
      embedded->is_embedded = true;
@@ -1199,53 +1116,53 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
    case '_':
     c = get_next_char();
     switch(c) {
-     case '0': t->method_name = "operator/="; break;
-     case '1': t->method_name = "operator%="; break;
-     case '2': t->method_name = "operator>>="; break;
-     case '3': t->method_name = "operator<<="; break;
-     case '4': t->method_name = "operator&="; break;
-     case '5': t->method_name = "operator|="; break;
-     case '6': t->method_name = "operator^="; break;
-     case '7': t->method_name = "`vftable'"; break;
-     case '8': t->method_name = "`vbtable'"; break;
-     case '9': t->method_name = "`vcall'"; break;
-     case 'A': t->method_name = "`typeof'"; break;
-     case 'B': t->method_name = "`local static guard'"; break;
+     case '0': t->add_name("operator/="); break;
+     case '1': t->add_name("operator%="); break;
+     case '2': t->add_name("operator>>="); break;
+     case '3': t->add_name("operator<<="); break;
+     case '4': t->add_name("operator&="); break;
+     case '5': t->add_name("operator|="); break;
+     case '6': t->add_name("operator^="); break;
+     case '7': t->add_name("`vftable'"); break;
+     case '8': t->add_name("`vbtable'"); break;
+     case '9': t->add_name("`vcall'"); break;
+     case 'A': t->add_name("`typeof'"); break;
+     case 'B': t->add_name("`local static guard'"); break;
      case 'C': get_string(t);
       return t;
-     case 'D': t->method_name = "`vbase destructor'"; break;
-     case 'E': t->method_name = "`vector deleting destructor'"; break;
-     case 'F': t->method_name = "`default constructor closure'"; break;
-     case 'G': t->method_name = "`scalar deleting destructor'"; break;
-     case 'H': t->method_name = "`vector constructor iterator'"; break;
-     case 'I': t->method_name = "`vector destructor iterator'"; break;
-     case 'J': t->method_name = "`vector vbase constructor iterator'"; break;
-     case 'K': t->method_name = "`virtual displacement map'"; break;
-     case 'L': t->method_name = "`eh vector constructor iterator'"; break;
-     case 'M': t->method_name = "`eh vector destructor iterator'"; break;
-     case 'N': t->method_name = "`eh vector vbase constructor iterator'"; break;
-     case 'O': t->method_name = "`copy constructor closure'"; break;
-     case 'P': t->method_name = "`udt returning'"; break;
+     case 'D': t->add_name("`vbase destructor'"); break;
+     case 'E': t->add_name("`vector deleting destructor'"); break;
+     case 'F': t->add_name("`default constructor closure'"); break;
+     case 'G': t->add_name("`scalar deleting destructor'"); break;
+     case 'H': t->add_name("`vector constructor iterator'"); break;
+     case 'I': t->add_name("`vector destructor iterator'"); break;
+     case 'J': t->add_name("`vector vbase constructor iterator'"); break;
+     case 'K': t->add_name("`virtual displacement map'"); break;
+     case 'L': t->add_name("`eh vector constructor iterator'"); break;
+     case 'M': t->add_name("`eh vector destructor iterator'"); break;
+     case 'N': t->add_name("`eh vector vbase constructor iterator'"); break;
+     case 'O': t->add_name("`copy constructor closure'"); break;
+     case 'P': t->add_name("`udt returning'"); break;
      case 'R': return get_rtti(t);
-     case 'S': t->method_name = "`local vftable'"; break;
-     case 'T': t->method_name = "`local vftable constructor closure'"; break;
-     case 'U': t->method_name = "operator new[]"; break;
-     case 'V': t->method_name = "operator delete[]"; break;
-     case 'X': t->method_name = "`placement delete closure'"; break;
-     case 'Y': t->method_name = "`placement delete[] closure'"; break;
+     case 'S': t->add_name("`local vftable'"); break;
+     case 'T': t->add_name("`local vftable constructor closure'"); break;
+     case 'U': t->add_name("operator new[]"); break;
+     case 'V': t->add_name("operator delete[]"); break;
+     case 'X': t->add_name("`placement delete closure'"); break;
+     case 'Y': t->add_name("`placement delete[] closure'"); break;
      case '_':
       c = get_next_char();
       switch(c) {
-       case 'A': t->method_name = "`managed vector constructor iterator'"; break;
-       case 'B': t->method_name = "`managed vector destructor iterator'"; break;
-       case 'C': t->method_name = "`eh vector copy constructor iterator'"; break;
-       case 'D': t->method_name = "`eh vector vbase copy constructor iterator'"; break;
-       case 'E': t->method_name = "`dynamic initializer'"; break;
-       case 'F': t->method_name = "`dynamic atexit destructor'"; break;
-       case 'G': t->method_name = "`vector copy constructor iterator'"; break;
-       case 'H': t->method_name = "`vector vbase copy constructor iterator'"; break;
-       case 'I': t->method_name = "`managed vector copy constructor iterator'"; break;
-       case 'J': t->method_name = "`local static thread guard'"; break;
+       case 'A': t->add_name("`managed vector constructor iterator'"); break;
+       case 'B': t->add_name("`managed vector destructor iterator'"); break;
+       case 'C': t->add_name("`eh vector copy constructor iterator'"); break;
+       case 'D': t->add_name("`eh vector vbase copy constructor iterator'"); break;
+       case 'E': t->add_name("`dynamic initializer'"); break;
+       case 'F': t->add_name("`dynamic atexit destructor'"); break;
+       case 'G': t->add_name("`vector copy constructor iterator'"); break;
+       case 'H': t->add_name("`vector vbase copy constructor iterator'"); break;
+       case 'I': t->add_name("`managed vector copy constructor iterator'"); break;
+       case 'J': t->add_name("`local static thread guard'"); break;
        default:
         bad_code(c, "special name '__')");
       }
@@ -1341,7 +1258,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
   t->simple_type = "`string'";
   t->n1 = multibyte ? (real_len / 2) : real_len;
   t->is_pointer = true;
-  t->method_name = std::move(result);
+  t->add_name(std::move(result));
   return t;
 }
 
@@ -1358,7 +1275,7 @@ DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
     advance_to_next_char();
     // Why there's a return type for RTTI descriptor is a little unclear to me...
     get_return_type(t);
-    t->method_name = "`RTTI Type Descriptor'";
+    t->add_name("`RTTI Type Descriptor'");
     break;
    case '1': {
      advance_to_next_char();
@@ -1367,19 +1284,20 @@ DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
      t->n2 = get_number();
      t->n3 = get_number();
      t->n4 = get_number();
-     std::string location = boost::str(boost::format("(%d, %d, %d, %d)'") % t->n1 % t->n2 % t->n3 % t->n4);
-     t->method_name = "`RTTI Base Class Descriptor at " + location;
+     std::string location = boost::str(boost::format("(%d, %d, %d, %d)'")
+                                       % t->n1 % t->n2 % t->n3 % t->n4);
+     t->add_name("`RTTI Base Class Descriptor at " + location);
      break;
    }
    case '2':
     advance_to_next_char();
-    t->method_name = "`RTTI Base Class Array'"; break;
+    t->add_name("`RTTI Base Class Array'"); break;
    case '3':
     advance_to_next_char();
-    t->method_name = "`RTTI Class Hierarchy Descriptor'"; break;
+    t->add_name("`RTTI Class Hierarchy Descriptor'"); break;
    case '4':
     advance_to_next_char();
-    t->method_name = "`RTTI Complete Object Locator'"; break;
+    t->add_name("`RTTI Complete Object Locator'"); break;
    default:
     bad_code(c, "RTTI");
   }
@@ -1804,8 +1722,6 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
     }
     else {
       get_special_name_code(templated_type);
-      // Very ugly and hackish...
-      templated_type->simple_type = templated_type->method_name;
     }
   }
   else {

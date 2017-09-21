@@ -103,13 +103,14 @@ class DemangledType {
   std::string str_simple_type(bool match = false) const;
   std::string str_template_parameters(bool match = false) const;
   std::string str_function_arguments(bool match = false) const;
-  std::string str_class_name(bool match = false) const;
   std::string str_array(bool match = false) const;
+  std::string const & get_pname() const;
 
  public:
 
   // Laziness. :-(
-  std::string str_name_qualifiers(const FullyQualifiedName& the_name, bool match = false) const;
+  std::string str_name_qualifiers(const FullyQualifiedName& the_name, bool match,
+                                  bool except_last = false) const;
 
   bool is_const = false;
   bool is_volatile = false;
@@ -195,10 +196,9 @@ class DemangledType {
   // Was this symbol exported?
   bool is_exported = false;
 
-  // Names and name like things...
+  // Ctors and dtors
   bool is_ctor = false;
   bool is_dtor = false;
-  std::string method_name;
 
   // The fully qualified name of a exported variable.   Names are still messy. :-(
   FullyQualifiedName instance_name;
@@ -218,11 +218,26 @@ class DemangledType {
   // extern "C" (which shouldn't be mangled, but Microsoft)
   bool extern_c = false;
 
-  DemangledType();
+  DemangledType() = default;
+  DemangledType(const DemangledType & other) = default;
+  DemangledType(DemangledType && other) = default;
+  ~DemangledType() = default;
+  DemangledType & operator=(const DemangledType & other) = default;
+  DemangledType & operator=(DemangledType && other) = default;
+
+  DemangledType(std::string && simple_name) : simple_type(std::move(simple_name)) {}
+  DemangledType(std::string const & simple_name) : simple_type(simple_name) {}
+  DemangledType(char const * simple_name) : simple_type(simple_name) {}
+
   std::string get_class_name() const;
   std::string get_method_name() const;
   std::string str(bool match = false, bool is_retval = false) const;
   void debug_type(bool match = false, size_t indent = 0, std::string label = "") const;
+
+  template <typename T>
+  void add_name(T && n) {
+    name.push_back(std::make_shared<DemangledType>(std::forward<T>(n)));
+  }
 };
 
 // Main entry point to demangler
