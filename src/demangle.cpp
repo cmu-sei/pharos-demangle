@@ -1,3 +1,5 @@
+// Copyright 2017 Carnegie Mellon University.  See LICENSE file for terms.
+
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -303,4 +305,8 @@ int main(int argc, char **argv)
   return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-
+/* Local Variables:   */
+/* mode: c++          */
+/* fill-column:    95 */
+/* comment-column: 0  */
+/* End:               */

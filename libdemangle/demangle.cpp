@@ -1,3 +1,5 @@
+// Copyright 2017 Carnegie Mellon University.  See LICENSE file for terms.
+
 #include <iostream>
 #include <string>
 #include <sstream>
