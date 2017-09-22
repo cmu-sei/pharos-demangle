@@ -143,7 +143,7 @@ JsonOutput::ObjectRef JsonOutput::convert(DemangledType const & sym) const
   }
   handle_namespace(obj, sym);
 
-  obj.add("text", sym.str(match));
+  obj.add("text", StringOutput(match)(sym));
 
   return std::move(node);
 }

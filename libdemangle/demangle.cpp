@@ -16,6 +16,14 @@
 namespace demangle {
 namespace detail {
 
+std::string str(DemangledTypePtr const & p)
+{
+  if (p) {
+    return StringOutput()(*p);
+  }
+  return std::string();
+}
+
 // An alias to make it easier to construct namespace types.
 class Namespace : public DemangledType {
  public:
@@ -136,7 +144,7 @@ void DemangledType::debug_type(bool match, size_t indent, std::string label) con
 
   std::cout << "(ST=" << (int)symbol_type << ") "
             << "(isFunc=" << is_func << ") " << label << ": ";
-  std::cout << str(match) << std::endl;
+  std::cout << StringOutput(match)(*this) << std::endl;
 
   if (is_pointer || is_reference) {
     if (inner_type) inner_type->debug_type(match, indent + 1, "PtrT");
@@ -172,46 +180,47 @@ void DemangledType::debug_type(bool match, size_t indent, std::string label) con
 
 // If this Type a pointer or a reference to a function? (Which requires special formatting)
 // Should it include is_refref?  Should is_func be merged with SymbolType?
-bool DemangledType::is_func_ptr() const {
-  if (is_pointer || is_reference) {
-    if (inner_type && inner_type->is_func) {
+bool
+StringOutput::is_func_ptr(DemangledType const * t) {
+  assert(t);
+  if (t->is_pointer || t->is_reference) {
+    if (t->inner_type && t->inner_type->is_func) {
       return true;
     }
   }
   return false;
 }
 
-std::string DemangledType::str_class_properties(bool match) const {
+std::string
+StringOutput::str_class_properties() const {
   std::ostringstream stream;
 
-  if (match && extern_c) {
+  if (match && t->extern_c) {
     stream << "extern \"C\" ";
   }
 
-  if (match && method_property == MethodProperty::Thunk) stream << "[thunk]:";
+  if (match && t->method_property == MethodProperty::Thunk) stream << "[thunk]:";
 
   // I should convert these enums to use the enum stringifier...
-  if (scope == Scope::Private) stream << "private: ";
-  if (scope == Scope::Protected) stream << "protected: ";
-  if (scope == Scope::Public) stream << "public: ";
+  if (t->scope == Scope::Private) stream << "private: ";
+  if (t->scope == Scope::Protected) stream << "protected: ";
+  if (t->scope == Scope::Public) stream << "public: ";
 
-  if (method_property == MethodProperty::Static) stream << "static ";
-  if (method_property == MethodProperty::Virtual) stream << "virtual ";
-  return stream.str();
-}
-
-std::string DemangledType::str_distance(bool match) const {
-  std::ostringstream stream;
-
-  if (!match && distance == Distance::Near) stream << "near ";
-  if (distance == Distance::Far) stream << "far ";
-  if (distance == Distance::Huge) stream << "huge ";
-
+  if (t->method_property == MethodProperty::Static) stream << "static ";
+  if (t->method_property == MethodProperty::Virtual) stream << "virtual ";
   return stream.str();
 }
 
 std::string
-DemangledType::str_storage_properties(Space space, bool match, bool is_retval) const
+StringOutput::str_distance() const {
+  if (!match && t->distance == Distance::Near) return "near ";
+  if (t->distance == Distance::Far) return "far ";
+  if (t->distance == Distance::Huge) return "huge ";
+  return std::string();
+}
+
+std::string
+StringOutput::str_storage_properties(Space space, bool is_retval) const
 {
   std::ostringstream stream;
   auto out = [&stream, &space](char const * s) {
@@ -234,35 +243,35 @@ DemangledType::str_storage_properties(Space space, bool match, bool is_retval) c
   // obviously a bit of a special case.  The source is allowed to have this qualifier, and the
   // mangled name codes it correctly as P/Q/R/S, so when we're not trying to match Visual
   // Studio, it's probably better to retain the qualifier.
-  bool discard = match && (is_pointer || is_reference || is_refref) && is_retval;
+  bool discard = is_retval && match && (t->is_pointer || t->is_reference || t->is_refref);
 
   auto cv = [this, &out, discard]() {
-              if (is_const) out("const");
-              if (is_volatile) out("volatile");
+              if (t->is_const) out("const");
+              if (t->is_volatile) out("volatile");
             };
 
-  if (!discard && (is_func || symbol_type == SymbolType::ClassMethod)) cv();
-  if (is_pointer) out(is_gc ? "^" : "*");
-  if (is_reference) out(is_gc ? "%" : "&");
-  if (is_refref) out("&&");
-  if (match && unaligned) out("__unaligned");
-  if (match && ptr64) out("__ptr64");
-  if (match && restrict) out("__restrict");
-  if (!discard && !is_func && symbol_type != SymbolType::ClassMethod) cv();
+  if (!discard && (t->is_func || t->symbol_type == SymbolType::ClassMethod)) cv();
+  if (t->is_pointer) out(t->is_gc ? "^" : "*");
+  if (t->is_reference) out(t->is_gc ? "%" : "&");
+  if (t->is_refref) out("&&");
+  if (match && t->unaligned) out("__unaligned");
+  if (match && t->ptr64) out("__ptr64");
+  if (match && t->restrict) out("__restrict");
+  if (!discard && !t->is_func && t->symbol_type != SymbolType::ClassMethod) cv();
 
   return stream.str();
 }
 
 std::string
-DemangledType::str_function_arguments(bool match) const
+StringOutput::str_function_arguments() const
 {
   std::ostringstream stream;
 
   stream << '(';
   // And now the arguments, as usual...
-  for (FunctionArgs::const_iterator ait = args.begin(); ait != args.end(); ait++) {
-    stream << (*ait)->str(match);
-    if ((ait+1) != args.end()) {
+  for (auto ait = t->args.begin(); ait != t->args.end(); ait++) {
+    stream << str(*ait);
+    if ((ait+1) != t->args.end()) {
       stream << ',';
       if (!match) stream << ' ';
     }
@@ -274,40 +283,39 @@ DemangledType::str_function_arguments(bool match) const
 }
 
 std::string
-DemangledType::str_template_parameters(bool match) const
+StringOutput::str_template_parameters() const
 {
-  std::ostringstream stream;
-
-  if (template_parameters.size() != 0) {
-    std::string tpstr;
-    stream << '<';
-    DemangledTemplate::const_iterator pit;
-    for (pit = template_parameters.begin(); pit != template_parameters.end(); pit++) {
-      auto tp = *pit;
-      auto next = pit + 1;
-      if (tp) {
-        tpstr = tp->str(match);
-        stream << tpstr;
-      }
-      if (next != template_parameters.end() && *(next)) {
-        if (!match) stream << ", ";
-        else stream << ',';
-      }
-    }
-
-    if (tpstr.size() > 0 && tpstr.back() == '>') {
-      stream << ' ';
-    }
-
-    stream << '>';
+  if (t->template_parameters.empty()) {
+    return std::string();
   }
+  std::ostringstream stream;
+  std::string tpstr;
+  stream << '<';
+  auto e = t->template_parameters.end();
+  for (auto pit = t->template_parameters.begin(); pit != e; ++pit) {
+    auto tp = *pit;
+    auto next = pit + 1;
+    if (tp) {
+      tpstr = str_template_parameter(*tp);
+      stream << tpstr;
+    }
+    if (next != e && *(next)) {
+      if (!match) stream << ", ";
+      else stream << ',';
+    }
+  }
+
+  if (!tpstr.empty() && tpstr.back() == '>') {
+    stream << ' ';
+  }
+
+  stream << '>';
 
   return stream.str();
 }
 
 std::string
-DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool match,
-                                   bool except_last) const
+StringOutput::str_name_qualifiers(const FullyQualifiedName& the_name, bool except_last) const
 {
   if (the_name.empty()) {
     return std::string();
@@ -324,7 +332,7 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
     // Some names have things that require extra quotations...
     if (ndt->is_embedded) {
       stream << '`';
-      std::string rendered = ndt->str(match);
+      std::string rendered = str(ndt);
       // Some nasty whitespace kludging here.  If the last character is a space, remove it.
       // There's almost certainly a better way to do this.  Perhaps all types ought to remove
       // their own trailing spaces?
@@ -341,14 +349,14 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
       if (nit == the_name.rbegin()) {
         stream << "ERRORNOCLASS";
       } else if (match) {
-        stream << (*(std::prev(nit)))->str(match);
+        stream << str(*std::prev(nit));
       } else {
-        stream << (*(std::prev(nit)))->get_pname();
+        stream << sub(*std::prev(nit)).get_pname();
       }
-      stream << ndt->str_template_parameters(match);
+      stream << sub(ndt).str_template_parameters();
     }
     else {
-      stream << ndt->str(match);
+      stream << str(ndt);
     }
   }
 
@@ -357,28 +365,29 @@ DemangledType::str_name_qualifiers(const FullyQualifiedName& the_name, bool matc
 
 // Public API to get the method name used by the OOAnalzyer.
 std::string
-DemangledType::get_method_name() const
+StringOutput::get_method_name(DemangledType const & sym)
 {
-  if (name.empty()) {
+  t = &sym;
+  if (sym.name.empty()) {
     return std::string();
   }
 
   std::ostringstream stream;
-  auto & method = name.front();
+  auto & method = t->name.front();
   if (method->is_ctor || method->is_dtor) {
     if (method->is_dtor) stream << '~';
 
-    if (name.size() < 2) {
+    if (t->name.size() < 2) {
       stream << "ERRORNOCLASS";
     } else {
-      stream << name[1]->get_pname();
+      stream << sub(t->name[1]).get_pname();
     }
   }
   else {
-    auto & mname = method->get_pname();
+    auto & mname = sub(method).get_pname();
     stream << mname;
-    if (retval && mname == "operator ") {
-      stream << retval->str();
+    if (t->retval && mname == "operator ") {
+      stream << str(t->retval);
     }
   }
 
@@ -386,73 +395,82 @@ DemangledType::get_method_name() const
 }
 
 std::string
-DemangledType::get_class_name() const
+StringOutput::get_class_name(DemangledType const & sym)
 {
-  return str_name_qualifiers(name, false, true);
+  t = &sym;
+  return str_name_qualifiers(t->name, true);
 }
 
 std::string
-DemangledType::str_array(UNUSED bool match) const
+StringOutput::str_array() const
 {
-  if (!is_array) return "";
+  if (!t->is_array) return "";
   std::ostringstream stream;
-  for (auto dim : dimensions) {
+  for (auto dim : t->dimensions) {
     stream << '[' << dim << ']';
   }
   return stream.str();
 }
 
 std::string
-DemangledType::str_simple_type(UNUSED bool match) const
+StringOutput::str_simple_type() const
 {
   std::ostringstream stream;
   // A simple type.
-  if (simple_type.size() != 0) {
-    stream << simple_type;
+  if (!t->simple_type.empty()) {
+    stream << t->simple_type;
     // Add a space after union, struct, class and enum?
-    if (name.size() != 0) stream << ' ';
+    if (!t->name.empty()) stream << ' ';
   }
   return stream.str();
 }
 
 std::string const &
-DemangledType::get_pname() const
+StringOutput::get_pname() const
 {
-  if (name.empty()) {
-    return simple_type;
+  if (t->name.empty()) {
+    return t->simple_type;
   }
-  return name.front()->get_pname();
+  return sub(t->name.front()).get_pname();
 }
 
 std::string
-DemangledType::str(bool match, bool is_retval) const
+StringOutput::operator()(DemangledType const & sym)
+{
+  t = &sym;
+  return str();
+}
+
+std::string
+StringOutput::str(bool is_retval) const
 {
   // If we're a namespace just return our simple_type name (hackish) and we're done.
-  if (is_namespace) {
-    if (is_anonymous) {
-      if (!match) return "'anonymous namespace " + simple_type + "'";
+  if (t->is_namespace) {
+    if (t->is_anonymous) {
+      if (!match) return "'anonymous namespace " + t->simple_type + "'";
       else return std::string("`anonymous namespace'");
     }
     else {
-      return simple_type;
+      return t->simple_type;
     }
   }
 
-  if (symbol_type == SymbolType::HexSymbol) {
-    return simple_type;
+  if (t->symbol_type == SymbolType::HexSymbol) {
+    return t->simple_type;
   }
 
   std::ostringstream stream;
 
-  stream << str_class_properties(match);
+  stream << str_class_properties();
 
   // Partially conversion from old code and partially simplification of this method.
-  if (symbol_type == SymbolType::GlobalFunction || symbol_type == SymbolType::ClassMethod
-      || symbol_type == SymbolType::VtorDisp)
+  if (t->symbol_type == SymbolType::GlobalFunction
+      || t->symbol_type == SymbolType::ClassMethod
+      || t->symbol_type == SymbolType::VtorDisp)
   {
-    stream << str_distance(match);
+    stream << str_distance();
     // Guessing at formatting..
-    if (is_exported) stream << "__declspec(dllexport)";
+    if (t->is_exported) stream << "__declspec(dllexport)";
 
     // Annoying, but we currently have a retval for non-existent return values, which causes
     // use to emit an extra space.  Perhaps there's a cleaner way to do this?  Another very
@@ -460,133 +478,137 @@ DemangledType::str(bool match, bool is_retval) const
     // method name, but is _NOT_ explicitly part of the type... :-( Increasingly it looks like
     // we should precompute where we want the retval to be rendered, and then emit it only
     // where we decided.
-    if (retval && get_pname() != "operator ") {
+    if (t->retval && get_pname() != "operator ") {
       std::string retstr;
-      if (retval->is_func_ptr()) {
-        retstr = retval->str(match, true);
+      if (is_func_ptr(t->retval)) {
+        retstr = str(t->retval, true);
         if (retstr.size() > 0) stream << retstr;
       }
       else {
-        retstr = retval->str(match, true);
+        retstr = str(t->retval, true);
         if (retstr.size() > 0) stream << retstr << ' ';
       }
     }
 
-    stream << calling_convention << ' ';
-    stream << str_name_qualifiers(name, match);
-    if (retval && get_pname() == "operator ") {
-      stream << retval->str(match);
+    stream << t->calling_convention << ' ';
+    stream << str_name_qualifiers(t->name);
+    if (t->retval && get_pname() == "operator ") {
+      stream << str(t->retval);
     }
-    if (match && symbol_type == SymbolType::VtorDisp) {
-      stream << "`vtordisp{" << n1 << ',' << n2 << "}' ";
-    } else if (match && method_property == MethodProperty::Thunk) {
-      stream << "`adjustor{" << n2 << "}' ";
+    if (match && t->symbol_type == SymbolType::VtorDisp) {
+      stream << "`vtordisp{" << t->n1 << ',' << t->n2 << "}' ";
+    } else if (match && t->method_property == MethodProperty::Thunk) {
+      stream << "`adjustor{" << t->n2 << "}' ";
     }
-    stream << str_function_arguments(match);
-    stream << str_storage_properties(Space::APPEND, match);
+    stream << str_function_arguments();
+    stream << str_storage_properties(Space::APPEND);
 
-    if (retval && retval->is_func_ptr() && get_pname() != "operator ") {
+    if (t->retval && is_func_ptr(t->retval) && get_pname() != "operator ") {
       stream << ')';
       // The name of the function is not present...
-      stream << retval->inner_type->str_function_arguments(match);
-      stream << retval->inner_type->str_storage_properties(Space::APPEND, match);
+      stream << sub(t->retval->inner_type).str_function_arguments();
+      stream << sub(t->retval->inner_type).str_storage_properties(Space::APPEND);
     }
 
     return stream.str();
   }
 
-  if (symbol_type == SymbolType::MethodThunk) {
-    stream << ' ' << calling_convention << ' ';
-    stream << str_name_qualifiers(name, match);
+  if (t->symbol_type == SymbolType::MethodThunk) {
+    stream << ' ' << t->calling_convention << ' ';
+    stream << str_name_qualifiers(t->name);
     if (match) {
-      stream << '{' << n1 << ",{flat}}' }'";
+      stream << '{' << t->n1 << ",{flat}}' }'";
     }
     return stream.str();
   }
 
-  if (symbol_type == SymbolType::String) {
+  if (t->symbol_type == SymbolType::String) {
     if (match) {
-      return simple_type;
+      return t->simple_type;
     }
-    stream << inner_type->str() << '[' << n1 << "] = " << quote_string(get_pname());
-    if (n1 > 32) {
+    stream << str(t->inner_type) << '[' << t->n1 << "] = " << quote_string(get_pname());
+    if (t->n1 > 32) {
       stream << "...";
     }
     return stream.str();
   }
 
-  if (is_pointer || is_reference || is_refref) {
-    if (inner_type == nullptr) {
-      std::cerr << "Unparse error: Inner type is not set for pointer or reference!" << std::endl;
+  if (t->is_pointer || t->is_reference || t->is_refref) {
+    if (t->inner_type == nullptr) {
+      std::cerr << "Unparse error: Inner type is not set for pointer or reference!"
+                << std::endl;
     }
     else {
-      if (inner_type->is_func) {
-        // Less drama is required for non-existent return values because you can't pass constructors,
-        // destructors, and opertator overloads?
-        stream << inner_type->retval->str(match, true);
+      if (t->inner_type->is_func) {
+        // Less drama is required for non-existent return values because you can't pass
+        // constructors, destructors, and opertator overloads?
+        stream << sub(t->inner_type->retval).str(true);
         // The calling convention is formatted differently...
-        stream << " (" << inner_type->calling_convention;
-        if (inner_type->is_member) {
+        stream << " (" << t->inner_type->calling_convention;
+        if (t->inner_type->is_member) {
           stream << ' ';
         }
       }
-      else if (!inner_type->is_member) {
-        stream << inner_type->str(match);
+      else if (!t->inner_type->is_member) {
+        stream << str(t->inner_type);
       }
 
-      if (inner_type->is_member) {
-        stream << str_name_qualifiers(inner_type->name, match) << "::";
+      if (t->inner_type->is_member) {
+        stream << str_name_qualifiers(t->inner_type->name) << "::";
       }
     }
-  } else if (is_func && inner_type) {
-    stream << inner_type->retval->str(match, true);
-    stream << ' ' << inner_type->calling_convention;
-    stream << inner_type->str_function_arguments(match);
+  } else if (t->is_func && t->inner_type) {
+    stream << sub(t->inner_type->retval).str(true);
+    stream << ' ' << t->inner_type->calling_convention;
+    stream << sub(t->inner_type).str_function_arguments();
   }
 
-  stream << str_distance(match);
-  stream << str_simple_type(match);
-  stream << str_name_qualifiers(name, match);
-  stream << str_array(match);
-  stream << str_template_parameters(match);
-  auto space = (inner_type && (inner_type->is_member || (inner_type->is_func && match)))
+  stream << str_distance();
+  stream << str_simple_type();
+  stream << str_name_qualifiers(t->name);
+  stream << str_array();
+  stream << str_template_parameters();
+  auto space = (t->inner_type && (t->inner_type->is_member
+                                  || (t->inner_type->is_func && match)))
                ? Space::NONE : Space::PREPEND;
-  stream << str_storage_properties(space, match, is_retval);
+  stream << str_storage_properties(space, is_retval);
 
   // If the symbol is a global object or a static class member, the name of the object (not the
   // type) will be in the instance_name and not the ordinary name field.
-  if (symbol_type == SymbolType::GlobalObject || symbol_type == SymbolType::StaticClassMember
-      || symbol_type == SymbolType::GlobalThing1 || symbol_type == SymbolType::GlobalThing2)
+  if (t->symbol_type == SymbolType::GlobalObject
+      || t->symbol_type == SymbolType::StaticClassMember
+      || t->symbol_type == SymbolType::GlobalThing1
+      || t->symbol_type == SymbolType::GlobalThing2)
   {
     stream << ' ';
-    stream << str_name_qualifiers(instance_name, match);
+    stream << str_name_qualifiers(t->instance_name);
   }
 
   // This is kind of ugly and hackish...  It's the second half of the pointer to function
   // logic.  There's probably a cleaner way to do this using a different kind of recursion.
-  if (!is_retval && is_func_ptr()) {
+  if (!is_retval && is_func_ptr(t)) {
     stream << ')';
     // The name of the function is not present...
-    stream << inner_type->str_function_arguments(match);
-    stream << inner_type->str_storage_properties(Space::APPEND, match);
+    stream << sub(t->inner_type).str_function_arguments();
+    stream << sub(t->inner_type).str_storage_properties(Space::APPEND);
   }
 
-  if (symbol_type == SymbolType::StaticGuard) {
-    if (!name.empty()) {
+  if (t->symbol_type == SymbolType::StaticGuard) {
+    if (!t->name.empty()) {
       stream << "::";
     }
-    stream << '{' << n1 << '}';
+    stream << '{' << t->n1 << '}';
     if (match) {
       stream << '\'';
     }
   }
 
-  if (!com_interface.empty()) {
+  if (!t->com_interface.empty()) {
     stream << "{for ";
-    auto i = com_interface.begin();
-    auto e = com_interface.end();
+    auto i = t->com_interface.begin();
+    auto e = t->com_interface.end();
     while (i != e) {
-      stream << '`' << (*i++)->str(match) << '\'';
+      stream << '`' << str(*i++) << '\'';
       if (i != e) {
         stream << "s ";
       }
@@ -605,21 +627,23 @@ DemangledTemplateParameter::DemangledTemplateParameter(int64_t c)
   : type(nullptr), constant_value(c)
 {}
 
-std::string DemangledTemplateParameter::str(bool match) const {
+std::string
+StringOutput::str_template_parameter(DemangledTemplateParameter const & p) const
+{
   std::ostringstream stream;
-  if (type == nullptr) {
-    stream << constant_value;
+  if (p.type == nullptr) {
+    stream << p.constant_value;
   }
-  else if (pointer) {
-    if (type->symbol_type == SymbolType::ClassMethod
-        || (type->is_func && type->is_member))
+  else if (p.pointer) {
+    if (p.type->symbol_type == SymbolType::ClassMethod
+        || (p.type->is_func && p.type->is_member))
     {
-      stream << '{' << type->str(match) << ',' << constant_value << '}';
+      stream << '{' << str(p.type) << ',' << p.constant_value << '}';
     } else {
-      stream << '&' << type->str(match);
+      stream << '&' << str(p.type);
     }
   } else {
-    return type->str(match);
+    return str(p.type);
   }
   return stream.str();
 }
@@ -679,7 +703,7 @@ void VisualStudioDemangler::stack_debug(
   if (!debug) return;
 
   if (stack.size() >= position + 1) {
-    entry = stack.at(position)->str();
+    entry = str(stack.at(position));
   }
   else {
     entry = boost::str(boost::format("INVALID") % position);
@@ -692,7 +716,7 @@ void VisualStudioDemangler::stack_debug(
     std::cout << "The full " << msg << " stack currently contains:" << std::endl;
     size_t p = 0;
     for (auto & t : stack) {
-      std::cout << "  " << p << " : " << t->str() << std::endl;
+      std::cout << "  " << p << " : " << str(t) << std::endl;
       p++;
     }
   }
@@ -839,7 +863,7 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
     t->inner_type = get_type(t->inner_type, false);
   }
   if (debug) {
-    std::cout << "Inner type was: " << t->inner_type->str() << std::endl;
+    std::cout << "Inner type was: " << str(t->inner_type) << std::endl;
   }
 
   // Add the type to the type stack.
@@ -1108,7 +1132,7 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
    case '?': {
      auto embedded = get_symbol();
      embedded->is_embedded = true;
-     if (debug) std::cout << "The fully embedded type was:" << embedded->str() << std::endl;
+     if (debug) std::cout << "The fully embedded type was:" << str(embedded) << std::endl;
      t->name.push_back(std::move(embedded));
      return t;
    }
@@ -1335,18 +1359,18 @@ DemangledTypePtr & VisualStudioDemangler::get_storage_class(DemangledTypePtr & t
    case 'C': return update_storage_class(t, Distance::Near, false, true,  false, false, false);
    case 'D': return update_storage_class(t, Distance::Near, true,  true,  false, false, false);
 
-   // E & F are not valid on their own in this context.
+    // E & F are not valid on their own in this context.
 
    case 'G': return update_storage_class(t, Distance::Near, false,  true,  false, false, false);
    case 'H': return update_storage_class(t, Distance::Near, true,   true,  false, false, false);
 
-   // I is not valid on it's own in this context.
+    // I is not valid on it's own in this context.
 
    case 'J': return update_storage_class(t, Distance::Near, true,   false, false, false, false);
    case 'K': return update_storage_class(t, Distance::Near, false,  true,  false, false, false);
    case 'L': return update_storage_class(t, Distance::Near, true,   true,  false, false, false);
 
-   // __based() variables, distance presumed to be near.
+    // __based() variables, distance presumed to be near.
    case 'M': return update_storage_class(t, Distance::Near, false, false, false, true,  false);
    case 'N': return update_storage_class(t, Distance::Near, true,  false, false, true,  false);
    case 'O': return update_storage_class(t, Distance::Near, false, true,  false, true,  false);
@@ -1515,7 +1539,7 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
    case '9':
     t->symbol_type = SymbolType::GlobalThing1; return t;
 
-   // Codes A-X are for class methods.
+    // Codes A-X are for class methods.
    case 'A': return update_method(t, Scope::Private, MethodProperty::Ordinary, Distance::Near);
    case 'B': return update_method(t, Scope::Private, MethodProperty::Ordinary, Distance::Far);
    case 'C': return update_method(t, Scope::Private, MethodProperty::Static, Distance::Near);
@@ -1543,7 +1567,7 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
    case 'W': return update_method(t, Scope::Public, MethodProperty::Thunk, Distance::Near);
    case 'X': return update_method(t, Scope::Public, MethodProperty::Thunk, Distance::Far);
 
-   // Codes Y & Z are for global (non-method) functions.
+    // Codes Y & Z are for global (non-method) functions.
    case 'Y': t->symbol_type = SymbolType::GlobalFunction; t->distance = Distance::Near; return t;
    case 'Z': t->symbol_type = SymbolType::GlobalFunction; t->distance = Distance::Far; return t;
 
@@ -1652,7 +1676,7 @@ DemangledTypePtr VisualStudioDemangler::resolve_reference(
   bool fake = false;
   if (stack.size() >= stack_offset + 1) {
     auto & reference = stack.at(stack_offset);
-    if (debug) std::cout << "Reference refers to " <<  reference->str() << std::endl;
+    if (debug) std::cout << "Reference refers to " <<  str(reference) << std::endl;
 
     // This is the "correct" thing to do.
     if (!fake) return reference;
@@ -2032,7 +2056,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
   // Return code.  It's annoying that the modifiers come first and require us to allocate it.
   t->retval = std::make_shared<DemangledType>();
   get_return_type(t->retval);
-  if (debug) std::cout << "Return value was: " << t->retval->str() << std::endl;
+  if (debug) std::cout << "Return value was: " << str(t->retval) << std::endl;
 
 
   // Whenever we start a nex set of function arguments, we start a new type stack?
@@ -2051,7 +2075,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
     progress("function argument");
     auto arg = get_type();
     t->args.push_back(arg);
-    if (debug) std::cout << "Arg #" << argno << " was: " << arg->str() << std::endl;
+    if (debug) std::cout << "Arg #" << argno << " was: " << str(arg) << std::endl;
     // If the first parameter is void, it's the only parameter.
     argno++;
     if (argno == 1 && arg->simple_type == "void") break;

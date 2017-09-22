@@ -17,16 +17,16 @@ using json::wrapper::Builder;
 
 class Demangler {
   bool debug = false;
-  bool winmatch = false;
   bool nosym = false;
   bool raw = false;
   bool batch = false;
   std::unique_ptr<Builder> builder;
   std::unique_ptr<JsonOutput> json_output;
+  mutable demangle::StringOutput str;
 
  public:
   void set_winmatch(bool val) {
-    winmatch = val;
+    str = demangle::StringOutput(val);
   }
   void set_nosym(bool val) {
     nosym = val;
@@ -65,13 +65,13 @@ bool Demangler::demangle(std::string const & mangled) const
     if (builder) {
       auto node = raw ? json_output->raw(*t) : json_output->convert(*t);
       node->add("symbol", mangled);
-      node->add("demangled", t->str(winmatch));
+      node->add("demangled", str(*t));
       std::cout << *node;
       if (batch) {
         std::cout << std::endl;
       }
     } else {
-      auto dem = t->str(winmatch);
+      auto dem = str(*t);
       if (!nosym) {
         std::cout << mangled << " ";
       }

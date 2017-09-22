@@ -93,27 +93,9 @@ using DemangledTemplateParameterPtr = std::shared_ptr<DemangledTemplateParameter
 typedef std::vector<DemangledTemplateParameterPtr> DemangledTemplate;
 
 class DemangledType {
-  enum class Space {PREPEND=1, APPEND=2, NONE=0, BOTH=3};
 
-  // The the type a pointer, reference, refref, etc. to a function?
-  bool is_func_ptr() const;
-
-  std::string str_class_properties(bool match = false) const;
-  std::string str_storage_properties(
-    Space space, bool match = false, bool is_retval = false) const;
-  std::string str_distance(bool match = false) const;
-  std::string str_simple_type(bool match = false) const;
-  std::string str_template_parameters(bool match = false) const;
-  std::string str_function_arguments(bool match = false) const;
-  std::string str_array(bool match = false) const;
-  std::string const & get_pname() const;
 
  public:
-
-  // Laziness. :-(
-  std::string str_name_qualifiers(const FullyQualifiedName& the_name, bool match,
-                                  bool except_last = false) const;
-
   bool is_const = false;
   bool is_volatile = false;
   bool is_reference = false;
@@ -231,9 +213,6 @@ class DemangledType {
   DemangledType(std::string const & simple_name) : simple_type(simple_name) {}
   DemangledType(char const * simple_name) : simple_type(simple_name) {}
 
-  std::string get_class_name() const;
-  std::string get_method_name() const;
-  std::string str(bool match = false, bool is_retval = false) const;
   void debug_type(bool match = false, size_t indent = 0, std::string label = "") const;
 
   template <typename T>
@@ -244,6 +223,51 @@ class DemangledType {
 
 // Main entry point to demangler
 DemangledTypePtr visual_studio_demangle(const std::string & mangled, bool debug = false);
+
+class StringOutput {
+  public:
+    StringOutput(bool match_ = false) : match(match_) {}
+    std::string operator()(DemangledType const & sym);
+    std::string get_class_name(DemangledType const & sym);
+    std::string get_method_name(DemangledType const & sym);
+
+  private:
+    bool match = false;
+    DemangledType const * t;
+
+    enum class Space {PREPEND=1, APPEND=2, NONE=0, BOTH=3};
+
+    StringOutput(StringOutput const &) = default;
+
+    std::string str(bool is_retval = false) const;
+    std::string str_name_qualifiers(const FullyQualifiedName& the_name,
+                                    bool except_last = false) const;
+    std::string str_class_properties() const;
+    std::string str_storage_properties(Space space, bool is_retval = false) const;
+    std::string str_distance() const;
+    std::string str_simple_type() const;
+    std::string str_template_parameters() const;
+    std::string str_function_arguments() const;
+    std::string str_array() const;
+    std::string const & get_pname() const;
+    std::string str_template_parameter(DemangledTemplateParameter const & param) const;
+
+    StringOutput sub(DemangledTypePtr const & t_) const {
+        StringOutput x(*this);
+        x.t = t_.get();
+        return x;
+    }
+    std::string str(DemangledTypePtr const & t_, bool is_retval = false) const {
+        return sub(t_).str(is_retval);
+    }
+
+    // Is the type a pointer, reference, refref, etc. to a function?
+    static bool is_func_ptr(DemangledType const * t);
+    static bool is_func_ptr(DemangledTypePtr const & t) {
+        return is_func_ptr(t.get());
+    }
+
+};
 
 } // namespace demangle
 
