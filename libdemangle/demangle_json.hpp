@@ -3,7 +3,7 @@
 #ifndef Include_demangle_json
 #define Include_demangle_json
 
-#include <libdemangle/demangle.hpp>
+#include "demangle.hpp"
 #include "json.hpp"
 
 namespace demangle {

@@ -1,5 +1,5 @@
 find_package(Boost 1.60.0 REQUIRED)
-add_library(libdemangle SHARED demangle.cpp)
+add_library(libdemangle SHARED demangle.cpp json.cpp demangle_json.cpp)
 set_target_properties(libdemangle PROPERTIES OUTPUT_NAME demangle)
 target_include_directories(libdemangle INTERFACE
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>

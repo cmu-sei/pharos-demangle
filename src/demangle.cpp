@@ -6,7 +6,7 @@
 #include <boost/format.hpp>
 
 #include <libdemangle/demangle.hpp>
-#include "demangle_json.hpp"
+#include <libdemangle/demangle_json.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
