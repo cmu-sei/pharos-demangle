@@ -1826,8 +1826,8 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
         // namespace terms in a fully qualified name...   Perhaps some code cleanup is needed?
         if (first || get_current_char() == '?') {
           auto tt = std::make_shared<DemangledType>();
-          get_special_name_code(tt);
-          if (tt->symbol_type == SymbolType::HexSymbol) {
+          tt = get_special_name_code(tt);
+          if (tt->symbol_type != t->symbol_type) {
             return t = std::move(tt);
           }
           t->name.push_back(std::move(tt));
