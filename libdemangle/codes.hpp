@@ -1,9 +1,11 @@
+// Copyright 2017 Carnegie Mellon University.  See LICENSE file for terms.
+
 #ifndef Include_codes_hpp
 #define Include_codes_hpp
 
 namespace demangle {
 
-#define ENUM(e, s) e
+#define CODE_ENUM(e, s) e
 
 enum class Code : unsigned {
   #include "code_data.hpp"
@@ -19,3 +21,9 @@ T & operator<<(T s, Code c) {
 } // namespace demangle
 
 #endif  // Include_codes_hpp
+
+/* Local Variables:   */
+/* mode: c++          */
+/* fill-column:    95 */
+/* comment-column: 0  */
+/* End:               */

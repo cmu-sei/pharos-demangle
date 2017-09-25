@@ -29,8 +29,11 @@ std::string str(DemangledTypePtr const & p)
 // An alias to make it easier to construct namespace types.
 class Namespace : public DemangledType {
  public:
-  Namespace(std::string n) : DemangledType() {
-    is_namespace = true; simple_type = n;
+  Namespace(std::string const & n) : DemangledType() {
+    is_namespace = true; simple_string = n;
+  }
+  Namespace(std::string && n) : DemangledType() {
+    is_namespace = true; simple_string = std::move(n);
   }
 };
 
@@ -81,7 +84,7 @@ class VisualStudioDemangler
   DemangledTypePtr get_symbol();
 
   // This is a mocked up helper for basic types.   More work is needed.
-  DemangledTypePtr & update_simple_type(DemangledTypePtr & t, const std::string & name);
+  DemangledTypePtr & update_simple_type(DemangledTypePtr & t, Code code);
   DemangledTypePtr & update_method(DemangledTypePtr & t, Scope scope,
                                    MethodProperty property, Distance distance);
   DemangledTypePtr & update_member(DemangledTypePtr & t, Scope scope, MethodProperty property);
@@ -386,9 +389,9 @@ StringOutput::get_method_name(DemangledType const & sym)
     }
   }
   else {
-    auto & mname = sub(method).get_pname();
-    stream << mname;
-    if (t->retval && mname == "operator ") {
+    auto tmp = sub(method);
+    stream << tmp.get_pname();
+    if (t->retval && tmp.get_pcode() == Code::OP_TYPE) {
       stream << str(t->retval);
     }
   }
@@ -417,23 +420,54 @@ StringOutput::str_array() const
 std::string
 StringOutput::str_simple_type() const
 {
-  std::ostringstream stream;
   // A simple type.
-  if (!t->simple_type.empty()) {
-    stream << t->simple_type;
-    // Add a space after union, struct, class and enum?
-    if (!t->name.empty()) stream << ' ';
+  if (t->simple_code == Code::UNDEFINED) {
+    return t->simple_string;
   }
-  return stream.str();
+  switch (t->simple_code) {
+   case Code::OP_TYPE: return "operator ";
+   case Code::INT8:    return "__int8";
+   case Code::INT16:   return "__int16";
+   case Code::INT32:   return "__int32";
+   case Code::INT64:   return "__int64";
+   case Code::UINT8:   return "unsigned __int8";
+   case Code::UINT16:  return "unsigned __int16";
+   case Code::UINT32:  return "unsigned __int32";
+   case Code::UINT64:  return "unsigned __int64";
+   case Code::CLASS: case Code::STRUCT: case Code::UNION: case Code::ENUM:
+    {
+      std::string rv(code_string(t->simple_code));
+      rv.push_back(' ');
+      return rv;
+    }
+   case Code::RTTI_BASE_CLASS_DESC:
+    {
+      std::ostringstream stream;
+      stream << "`RTTI Base Class Descriptor at ("
+             << t->n1 << ", " << t->n2 << ", " << t->n3 << ", " << t->n4 << ")'";
+      return stream.str();
+    }
+   default:
+    return code_string(t->simple_code);
+  }
 }
 
-std::string const &
+std::string
 StringOutput::get_pname() const
 {
   if (t->name.empty()) {
-    return t->simple_type;
+    return str_simple_type();
   }
   return sub(t->name.front()).get_pname();
+}
+
+Code
+StringOutput::get_pcode() const
+{
+  if (t->name.empty()) {
+    return t->simple_code;
+  }
+  return sub(t->name.front()).get_pcode();
 }
 
 std::string
@@ -449,16 +483,16 @@ StringOutput::str(bool is_retval) const
   // If we're a namespace just return our simple_type name (hackish) and we're done.
   if (t->is_namespace) {
     if (t->is_anonymous) {
-      if (!match) return "'anonymous namespace " + t->simple_type + "'";
+      if (!match) return "'anonymous namespace " + t->simple_string + "'";
       else return std::string("`anonymous namespace'");
     }
     else {
-      return t->simple_type;
+      return t->simple_string;
     }
   }
 
   if (t->symbol_type == SymbolType::HexSymbol) {
-    return t->simple_type;
+    return t->simple_string;
   }
 
   std::ostringstream stream;
@@ -480,7 +514,7 @@ StringOutput::str(bool is_retval) const
     // method name, but is _NOT_ explicitly part of the type... :-( Increasingly it looks like
     // we should precompute where we want the retval to be rendered, and then emit it only
     // where we decided.
-    if (t->retval && get_pname() != "operator ") {
+    if (t->retval && get_pcode() != Code::OP_TYPE) {
       std::string retstr;
       if (is_func_ptr(t->retval)) {
         retstr = str(t->retval, true);
@@ -494,7 +528,7 @@ StringOutput::str(bool is_retval) const
 
     stream << t->calling_convention << ' ';
     stream << str_name_qualifiers(t->name);
-    if (t->retval && get_pname() == "operator ") {
+    if (t->retval && get_pcode() == Code::OP_TYPE) {
       stream << str(t->retval);
     }
     if (match && t->symbol_type == SymbolType::VtorDisp) {
@@ -505,7 +539,7 @@ StringOutput::str(bool is_retval) const
     stream << str_function_arguments();
     stream << str_storage_properties(Space::APPEND);
 
-    if (t->retval && is_func_ptr(t->retval) && get_pname() != "operator ") {
+    if (t->retval && is_func_ptr(t->retval) && get_pcode() != Code::OP_TYPE) {
       stream << ')';
       // The name of the function is not present...
       stream << sub(t->retval->inner_type).str_function_arguments();
@@ -526,7 +560,7 @@ StringOutput::str(bool is_retval) const
 
   if (t->symbol_type == SymbolType::String) {
     if (match) {
-      return t->simple_type;
+      return t->simple_string;
     }
     stream << str(t->inner_type) << '[' << t->n1 << "] = " << quote_string(get_pname());
     if (t->n1 > 32) {
@@ -751,9 +785,9 @@ DemangledTypePtr & VisualStudioDemangler::process_calling_convention(DemangledTy
 }
 
 DemangledTypePtr &
-VisualStudioDemangler::update_simple_type(DemangledTypePtr & t, const std::string & name)
+VisualStudioDemangler::update_simple_type(DemangledTypePtr & t, Code code)
 {
-  t->simple_type = name;
+  t->simple_code = code;
   advance_to_next_char();
   return t;
 }
@@ -896,14 +930,14 @@ DemangledTypePtr & VisualStudioDemangler::get_real_enum_type(DemangledTypePtr & 
   progress("enum real type");
   auto & rt = t->enum_real_type = std::make_shared<DemangledType>();
   switch(c) {
-   case '0': update_simple_type(rt, "signed char"); break;
-   case '1': update_simple_type(rt, "unsigned char"); break;
-   case '2': update_simple_type(rt, "short"); break;
-   case '3': update_simple_type(rt, "unsigned short"); break;
-   case '4': update_simple_type(rt, "int"); break;
-   case '5': update_simple_type(rt, "unsigned int"); break;
-   case '6': update_simple_type(rt, "long"); break;
-   case '7': update_simple_type(rt, "unsigned long"); break;
+   case '0': update_simple_type(rt, Code::SIGNED_CHAR); break;
+   case '1': update_simple_type(rt, Code::UNSIGNED_CHAR); break;
+   case '2': update_simple_type(rt, Code::SHORT); break;
+   case '3': update_simple_type(rt, Code::UNSIGNED_SHORT); break;
+   case '4': update_simple_type(rt, Code::INT); break;
+   case '5': update_simple_type(rt, Code::UNSIGNED_INT); break;
+   case '6': update_simple_type(rt, Code::LONG); break;
+   case '7': update_simple_type(rt, Code::UNSIGNED_LONG); break;
    default:
     bad_code(c, "enum real type");
   }
@@ -940,18 +974,18 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     t->is_reference = true;
     t->is_volatile = true;
     return get_pointer_type(t, push);
-   case 'C': return update_simple_type(t, "signed char");
-   case 'D': return update_simple_type(t, "char");
-   case 'E': return update_simple_type(t, "unsigned char");
-   case 'F': return update_simple_type(t, "short");
-   case 'G': return update_simple_type(t, "unsigned short");
-   case 'H': return update_simple_type(t, "int");
-   case 'I': return update_simple_type(t, "unsigned int");
-   case 'J': return update_simple_type(t, "long");
-   case 'K': return update_simple_type(t, "unsigned long");
-   case 'M': return update_simple_type(t, "float");
-   case 'N': return update_simple_type(t, "double");
-   case 'O': return update_simple_type(t, "long double");
+   case 'C': return update_simple_type(t, Code::SIGNED_CHAR);
+   case 'D': return update_simple_type(t, Code::CHAR);
+   case 'E': return update_simple_type(t, Code::UNSIGNED_CHAR);
+   case 'F': return update_simple_type(t, Code::SHORT);
+   case 'G': return update_simple_type(t, Code::UNSIGNED_SHORT);
+   case 'H': return update_simple_type(t, Code::INT);
+   case 'I': return update_simple_type(t, Code::UNSIGNED_INT);
+   case 'J': return update_simple_type(t, Code::LONG);
+   case 'K': return update_simple_type(t, Code::UNSIGNED_LONG);
+   case 'M': return update_simple_type(t, Code::FLOAT);
+   case 'N': return update_simple_type(t, Code::DOUBLE);
+   case 'O': return update_simple_type(t, Code::LONG_DOUBLE);
    case 'P': // X*
     t->is_pointer = true; return get_pointer_type(t, push);
    case 'Q': // X* const
@@ -961,7 +995,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
    case 'S': // X* const volatile
     t->is_pointer = true; t->is_const = true; t->is_volatile = true; return get_pointer_type(t);
    case 'T':
-    update_simple_type(t, "union");
+    update_simple_type(t, Code::UNION);
     get_fully_qualified_name(t);
     if (push) {
       type_stack.push_back(t);
@@ -969,7 +1003,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     }
     return t;
    case 'U':
-    update_simple_type(t, "struct");
+    update_simple_type(t, Code::STRUCT);
     get_fully_qualified_name(t);
     if (push) {
       type_stack.push_back(t);
@@ -977,7 +1011,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     }
     return t;
    case 'V':
-    update_simple_type(t, "class");
+    update_simple_type(t, Code::CLASS);
     get_fully_qualified_name(t);
     if (push) {
       type_stack.push_back(t);
@@ -985,7 +1019,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     }
     return t;
    case 'W':
-    update_simple_type(t, "enum");
+    update_simple_type(t, Code::ENUM);
     get_real_enum_type(t);
     get_fully_qualified_name(t);
     if (push) {
@@ -993,11 +1027,11 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
       stack_debug(type_stack, type_stack.size()-1, "type");
     }
     return t;
-   case 'X': return update_simple_type(t, "void");
+   case 'X': return update_simple_type(t, Code::VOID);
    case 'Y': // array
     advance_to_next_char();
     return get_array_type(t, push);
-   case 'Z': return update_simple_type(t, "...");
+   case 'Z': return update_simple_type(t, Code::ELLIPSIS);
    case '0': case '1': case '2': case '3': case '4':
    case '5': case '6': case '7': case '8': case '9':
     // Consume the reference character...
@@ -1007,21 +1041,21 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     c = get_next_char();
     switch(c) {
      case '$': bad_code(c, "_w64 prefix");
-     case 'D': update_simple_type(t, "__int8"); break;
-     case 'E': update_simple_type(t, "unsigned __int8"); break;
-     case 'F': update_simple_type(t, "__int16"); break;
-     case 'G': update_simple_type(t, "unsigned __int16"); break;
-     case 'H': update_simple_type(t, "__int32"); break;
-     case 'I': update_simple_type(t, "unsigned __int32"); break;
-     case 'J': update_simple_type(t, "__int64"); break;
-     case 'K': update_simple_type(t, "unsigned __int64"); break;
-     case 'L': update_simple_type(t, "__int128"); break;
-     case 'M': update_simple_type(t, "unsigned __int128"); break;
-     case 'N': update_simple_type(t, "bool"); break;
+     case 'D': update_simple_type(t, Code::INT8); break;
+     case 'E': update_simple_type(t, Code::UINT8); break;
+     case 'F': update_simple_type(t, Code::INT16); break;
+     case 'G': update_simple_type(t, Code::UINT16); break;
+     case 'H': update_simple_type(t, Code::INT32); break;
+     case 'I': update_simple_type(t, Code::UINT32); break;
+     case 'J': update_simple_type(t, Code::INT64); break;
+     case 'K': update_simple_type(t, Code::UINT64); break;
+     case 'L': update_simple_type(t, Code::INT128); break;
+     case 'M': update_simple_type(t, Code::UINT128); break;
+     case 'N': update_simple_type(t, Code::BOOL); break;
      case 'O': bad_code(c, "unhandled array");
-     case 'S': update_simple_type(t, "char16_t"); break;
-     case 'U': update_simple_type(t, "char32_t"); break;
-     case 'W': update_simple_type(t, "wchar_t"); break;
+     case 'S': update_simple_type(t, Code::CHAR16); break;
+     case 'U': update_simple_type(t, Code::CHAR32); break;
+     case 'W': update_simple_type(t, Code::WCHAR); break;
      case 'X': bad_code(c, "coclass");
      case 'Y': bad_code(c, "cointerface");
      default:
@@ -1097,40 +1131,40 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
   switch(c) {
    case '0': t->is_ctor = true; break;
    case '1': t->is_dtor = true; break;
-   case '2': t->add_name("operator new"); break;
-   case '3': t->add_name("operator delete"); break;
-   case '4': t->add_name("operator="); break;
-   case '5': t->add_name("operator>>"); break;
-   case '6': t->add_name("operator<<"); break;
-   case '7': t->add_name("operator!"); break;
-   case '8': t->add_name("operator=="); break;
-   case '9': t->add_name("operator!="); break;
-   case 'A': t->add_name("operator[]"); break;
-   case 'B': t->add_name("operator "); break; // missing logic?
-   case 'C': t->add_name("operator->"); break;
-   case 'D': t->add_name("operator*"); break;
-   case 'E': t->add_name("operator++"); break;
-   case 'F': t->add_name("operator--"); break;
-   case 'G': t->add_name("operator-"); break;
-   case 'H': t->add_name("operator+"); break;
-   case 'I': t->add_name("operator&"); break;
-   case 'J': t->add_name("operator->*"); break;
-   case 'K': t->add_name("operator/"); break;
-   case 'L': t->add_name("operator%"); break;
-   case 'M': t->add_name("operator<"); break;
-   case 'N': t->add_name("operator<="); break;
-   case 'O': t->add_name("operator>"); break;
-   case 'P': t->add_name("operator>="); break;
-   case 'Q': t->add_name("operator,"); break;
-   case 'R': t->add_name("operator()"); break;
-   case 'S': t->add_name("operator~"); break;
-   case 'T': t->add_name("operator^"); break;
-   case 'U': t->add_name("operator|"); break;
-   case 'V': t->add_name("operator&&"); break;
-   case 'W': t->add_name("operator||"); break;
-   case 'X': t->add_name("operator*="); break;
-   case 'Y': t->add_name("operator+="); break;
-   case 'Z': t->add_name("operator-="); break;
+   case '2': t->add_name(Code::OP_NEW); break;
+   case '3': t->add_name(Code::OP_DELETE); break;
+   case '4': t->add_name(Code::OP_ASSIGN); break;
+   case '5': t->add_name(Code::OP_RSHIFT); break;
+   case '6': t->add_name(Code::OP_LSHIFT); break;
+   case '7': t->add_name(Code::OP_NOT); break;
+   case '8': t->add_name(Code::OP_EQUAL); break;
+   case '9': t->add_name(Code::OP_NOTEQUAL); break;
+   case 'A': t->add_name(Code::OP_INDEX); break;
+   case 'B': t->add_name(Code::OP_TYPE); break;
+   case 'C': t->add_name(Code::OP_INDIRECT); break;
+   case 'D': t->add_name(Code::OP_STAR); break;
+   case 'E': t->add_name(Code::OP_PLUSPLUS); break;
+   case 'F': t->add_name(Code::OP_MINUSMINUS); break;
+   case 'G': t->add_name(Code::OP_MINUS); break;
+   case 'H': t->add_name(Code::OP_PLUS); break;
+   case 'I': t->add_name(Code::OP_AMP); break;
+   case 'J': t->add_name(Code::OP_INDIRECT_METHOD); break;
+   case 'K': t->add_name(Code::OP_DIV); break;
+   case 'L': t->add_name(Code::OP_MOD); break;
+   case 'M': t->add_name(Code::OP_LESS); break;
+   case 'N': t->add_name(Code::OP_LESSEQ); break;
+   case 'O': t->add_name(Code::OP_GREATER); break;
+   case 'P': t->add_name(Code::OP_GREATEREQ); break;
+   case 'Q': t->add_name(Code::OP_COMMA); break;
+   case 'R': t->add_name(Code::OP_CALL); break;
+   case 'S': t->add_name(Code::OP_BNOT); break;
+   case 'T': t->add_name(Code::OP_BXOR); break;
+   case 'U': t->add_name(Code::OP_BOR); break;
+   case 'V': t->add_name(Code::OP_AND); break;
+   case 'W': t->add_name(Code::OP_OR); break;
+   case 'X': t->add_name(Code::OP_STAR_ASSIGN); break;
+   case 'Y': t->add_name(Code::OP_PLUS_ASSIGN); break;
+   case 'Z': t->add_name(Code::OP_MINUS_ASSIGN); break;
    case '?': {
      auto embedded = get_symbol();
      embedded->is_embedded = true;
@@ -1141,53 +1175,54 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
    case '_':
     c = get_next_char();
     switch(c) {
-     case '0': t->add_name("operator/="); break;
-     case '1': t->add_name("operator%="); break;
-     case '2': t->add_name("operator>>="); break;
-     case '3': t->add_name("operator<<="); break;
-     case '4': t->add_name("operator&="); break;
-     case '5': t->add_name("operator|="); break;
-     case '6': t->add_name("operator^="); break;
-     case '7': t->add_name("`vftable'"); break;
-     case '8': t->add_name("`vbtable'"); break;
-     case '9': t->add_name("`vcall'"); break;
-     case 'A': t->add_name("`typeof'"); break;
-     case 'B': t->add_name("`local static guard'"); break;
+     case '0': t->add_name(Code::OP_DIV_ASSIGN); break;
+     case '1': t->add_name(Code::OP_MOD_ASSIGN); break;
+     case '2': t->add_name(Code::OP_RSHIFT_ASSIGN); break;
+     case '3': t->add_name(Code::OP_LSHIFT_ASSIGN); break;
+     case '4': t->add_name(Code::OP_AMP_ASSIGN); break;
+     case '5': t->add_name(Code::OP_BOR_ASSIGN); break;
+     case '6': t->add_name(Code::OP_BXOR_ASSIGN); break;
+     case '7': t->add_name(Code::VFTABLE); break;
+     case '8': t->add_name(Code::VBTABLE); break;
+     case '9': t->add_name(Code::VCALL); break;
+     case 'A': t->add_name(Code::TYPEOF); break;
+     case 'B': t->add_name(Code::LOCAL_STATIC_GUARD); break;
      case 'C': get_string(t);
       return t;
-     case 'D': t->add_name("`vbase destructor'"); break;
-     case 'E': t->add_name("`vector deleting destructor'"); break;
-     case 'F': t->add_name("`default constructor closure'"); break;
-     case 'G': t->add_name("`scalar deleting destructor'"); break;
-     case 'H': t->add_name("`vector constructor iterator'"); break;
-     case 'I': t->add_name("`vector destructor iterator'"); break;
-     case 'J': t->add_name("`vector vbase constructor iterator'"); break;
-     case 'K': t->add_name("`virtual displacement map'"); break;
-     case 'L': t->add_name("`eh vector constructor iterator'"); break;
-     case 'M': t->add_name("`eh vector destructor iterator'"); break;
-     case 'N': t->add_name("`eh vector vbase constructor iterator'"); break;
-     case 'O': t->add_name("`copy constructor closure'"); break;
-     case 'P': t->add_name("`udt returning'"); break;
+     case 'D': t->add_name(Code::VBASE_DTOR); break;
+     case 'E': t->add_name(Code::VECTOR_DELETING_DTOR); break;
+     case 'F': t->add_name(Code::DEFAULT_CTOR_CLOSURE); break;
+     case 'G': t->add_name(Code::SCALAR_DELETING_DTOR); break;
+     case 'H': t->add_name(Code::VECTOR_CTOR_ITER); break;
+     case 'I': t->add_name(Code::VECTOR_DTOR_ITER); break;
+     case 'J': t->add_name(Code::VECTOR_VBASE_CTOR_ITER); break;
+     case 'K': t->add_name(Code::VIRTUAL_DISPLACEMENT_MAP); break;
+     case 'L': t->add_name(Code::EH_VECTOR_CTOR_ITER); break;
+     case 'M': t->add_name(Code::EH_VECTOR_DTOR_ITER); break;
+     case 'N': t->add_name(Code::EH_VECTOR_VBASE_CTOR_ITER); break;
+     case 'O': t->add_name(Code::COPY_CTOR_CLOSURE); break;
+     case 'P': t->add_name(Code::UDT_RETURNING); break;
      case 'R': return get_rtti(t);
-     case 'S': t->add_name("`local vftable'"); break;
-     case 'T': t->add_name("`local vftable constructor closure'"); break;
-     case 'U': t->add_name("operator new[]"); break;
-     case 'V': t->add_name("operator delete[]"); break;
-     case 'X': t->add_name("`placement delete closure'"); break;
-     case 'Y': t->add_name("`placement delete[] closure'"); break;
+     case 'S': t->add_name(Code::LOCAL_VFTABLE); break;
+     case 'T': t->add_name(Code::LOCAL_VFTABLE_CTOR_CLOSURE); break;
+     case 'U': t->add_name(Code::OP_NEW_ARRAY); break;
+     case 'V': t->add_name(Code::OP_DELETE_ARRAY); break;
+     case 'X': t->add_name(Code::PLACEMENT_DELETE_CLOSURE); break;
+     case 'Y': t->add_name(Code::PLACEMENT_DELETE_ARRAY_CLOSURE); break;
      case '_':
       c = get_next_char();
       switch(c) {
-       case 'A': t->add_name("`managed vector constructor iterator'"); break;
-       case 'B': t->add_name("`managed vector destructor iterator'"); break;
-       case 'C': t->add_name("`eh vector copy constructor iterator'"); break;
-       case 'D': t->add_name("`eh vector vbase copy constructor iterator'"); break;
-       case 'E': t->add_name("`dynamic initializer'"); break;
-       case 'F': t->add_name("`dynamic atexit destructor'"); break;
-       case 'G': t->add_name("`vector copy constructor iterator'"); break;
-       case 'H': t->add_name("`vector vbase copy constructor iterator'"); break;
-       case 'I': t->add_name("`managed vector copy constructor iterator'"); break;
-       case 'J': t->add_name("`local static thread guard'"); break;
+       case 'A': t->add_name(Code::MANAGED_VECTOR_CTOR_ITER); break;
+       case 'B': t->add_name(Code::MANAGED_VECTOR_DTOR_ITER); break;
+       case 'C': t->add_name(Code::EH_VECTOR_COPY_CTOR_ITER); break;
+       case 'D': t->add_name(Code::EH_VECTOR_VBASE_COPY_CTOR_ITER); break;
+       case 'E': t->add_name(Code::DYNAMIC_INITIALIZER); break;
+       case 'F': t->add_name(Code::DYNAMIC_ATEXIT_DTOR); break;
+       case 'G': t->add_name(Code::VECTOR_COPY_CTOR_ITER); break;
+       case 'H': t->add_name(Code::VECTOR_VBASE_COPY_CTOR_ITER); break;
+       case 'I': t->add_name(Code::MANAGED_VECTOR_COPY_CTOR_ITER); break;
+       case 'J': t->add_name(Code::LOCAL_STATIC_THREAD_GUARD); break;
+       case 'K': t->add_name(Code::OP_DQUOTE); break;
        default:
         bad_code(c, "special name '__')");
       }
@@ -1199,7 +1234,7 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
    case '@':
     t->symbol_type = SymbolType::HexSymbol;
     advance_to_next_char();
-    t->simple_type = get_literal();
+    t->simple_string = get_literal();
     return t;
    default:
     bad_code(c, "special name");
@@ -1279,8 +1314,8 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
 
   t->symbol_type = SymbolType::String;
   t->inner_type = std::make_shared<DemangledType>();
-  t->inner_type->simple_type = multibyte ? "char16_t" : "char";
-  t->simple_type = "`string'";
+  t->inner_type->simple_code = multibyte ? Code::CHAR16 : Code::CHAR;
+  t->simple_string = "`string'";
   t->n1 = multibyte ? (real_len / 2) : real_len;
   t->is_pointer = true;
   t->add_name(std::move(result));
@@ -1300,29 +1335,26 @@ DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
     advance_to_next_char();
     // Why there's a return type for RTTI descriptor is a little unclear to me...
     get_return_type(t);
-    t->add_name("`RTTI Type Descriptor'");
+    t->add_name(Code::RTTI_TYPE_DESC);
     break;
    case '1': {
      advance_to_next_char();
-     // These should be stored in the result...
-     t->n1 = get_number();
-     t->n2 = get_number();
-     t->n3 = get_number();
-     t->n4 = get_number();
-     std::string location = boost::str(boost::format("(%d, %d, %d, %d)'")
-                                       % t->n1 % t->n2 % t->n3 % t->n4);
-     t->add_name("`RTTI Base Class Descriptor at " + location);
+     auto n = t->add_name(Code::RTTI_BASE_CLASS_DESC);
+     n->n1 = get_number();
+     n->n2 = get_number();
+     n->n3 = get_number();
+     n->n4 = get_number();
      break;
    }
    case '2':
     advance_to_next_char();
-    t->add_name("`RTTI Base Class Array'"); break;
+    t->add_name(Code::RTTI_BASE_CLASS_ARRAY); break;
    case '3':
     advance_to_next_char();
-    t->add_name("`RTTI Class Hierarchy Descriptor'"); break;
+    t->add_name(Code::RTTI_CLASS_HEIRARCHY_DESC); break;
    case '4':
     advance_to_next_char();
-    t->add_name("`RTTI Complete Object Locator'"); break;
+    t->add_name(Code::RTTI_COMPLETE_OBJ_LOCATOR); break;
    default:
     bad_code(c, "RTTI");
   }
@@ -1750,8 +1782,8 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
     }
   }
   else {
-    templated_type->simple_type = get_literal();
-    name_stack.emplace_back(std::make_shared<Namespace>(templated_type->simple_type));
+    templated_type->simple_string = get_literal();
+    name_stack.emplace_back(std::make_shared<Namespace>(templated_type->simple_string));
   }
 
   // We also need a new type stack for the template parameters.
@@ -2080,9 +2112,9 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
     if (debug) std::cout << "Arg #" << argno << " was: " << str(arg) << std::endl;
     // If the first parameter is void, it's the only parameter.
     argno++;
-    if (argno == 1 && arg->simple_type == "void") break;
+    if (argno == 1 && arg->simple_code == Code::VOID) break;
     // If the most recent parameter is '...', it's the last parameter.
-    if (arg->simple_type == "...") break;
+    if (arg->simple_code == Code::ELLIPSIS) break;
   }
 
   progress("end of function arguments");

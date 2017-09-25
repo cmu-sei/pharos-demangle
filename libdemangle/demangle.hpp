@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+#include "codes.hpp"
+
 namespace demangle {
 
 // Thrown for errors encountered while demangling names.
@@ -152,11 +154,12 @@ class DemangledType {
   // The real type of an enum (Usually int, and often coded assuch regardless).
   DemangledTypePtr enum_real_type;
 
-  // Simple type is currently a bit of a hodge-podge...  It contains the string representing
-  // simple types (e.g. unsigned int).  But it also contains the names of name spaces, the
-  // names of templated types, simple class names (which are indistinguishable from classes),
-  // and occasionally other keywords like class or struct.
-  std::string simple_type;
+
+  // If simple_code is undefined, use simple_string instead.  These fields hold function names,
+  // type names, namespace names, and a bunch of other things as well.  simple_string is used
+  // iff simple_code == Code::UNDEFINED.
+  Code simple_code = Code::UNDEFINED;
+  std::string simple_string;
 
   // The fully qualified name of a complex type (e.g. a templated class).
   FullyQualifiedName name;
@@ -208,15 +211,17 @@ class DemangledType {
   DemangledType & operator=(const DemangledType & other) = default;
   DemangledType & operator=(DemangledType && other) = default;
 
-  DemangledType(std::string && simple_name) : simple_type(std::move(simple_name)) {}
-  DemangledType(std::string const & simple_name) : simple_type(simple_name) {}
-  DemangledType(char const * simple_name) : simple_type(simple_name) {}
+  DemangledType(std::string && simple_name) : simple_string(std::move(simple_name)) {}
+  DemangledType(std::string const & simple_name) : simple_string(simple_name) {}
+  DemangledType(char const * simple_name) : simple_string(simple_name) {}
+  DemangledType(Code code) : simple_code(code) {}
 
   void debug_type(bool match = false, size_t indent = 0, std::string label = "") const;
 
   template <typename T>
-  void add_name(T && n) {
+  DemangledTypePtr & add_name(T && n) {
     name.push_back(std::make_shared<DemangledType>(std::forward<T>(n)));
+    return name.back();
   }
 };
 
@@ -248,7 +253,8 @@ class StringOutput {
     std::string str_template_parameters() const;
     std::string str_function_arguments() const;
     std::string str_array() const;
-    std::string const & get_pname() const;
+    std::string get_pname() const;
+    Code get_pcode() const;
     std::string str_template_parameter(DemangledTemplateParameter const & param) const;
 
     StringOutput sub(DemangledTypePtr const & t_) const {

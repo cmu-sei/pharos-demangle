@@ -214,8 +214,11 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   if (sym.enum_real_type) {
     obj.add("enum_real_type", raw(*sym.enum_real_type));
   }
-  if (!sym.simple_type.empty()) {
-    obj.add("simple_type", sym.simple_type);
+  if (!sym.simple_string.empty()) {
+    obj.add("simple_string", sym.simple_string);
+  }
+  if (sym.simple_code != Code::UNDEFINED) {
+    obj.add("simple_code", code_string(sym.simple_code));
   }
   add_rlist("name", sym.name);
   add_list("com_interface", sym.com_interface);
