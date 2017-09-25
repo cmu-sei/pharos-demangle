@@ -85,7 +85,6 @@ class DemangledTemplateParameter {
 
   DemangledTemplateParameter(DemangledTypePtr t);
   DemangledTemplateParameter(int64_t c);
-  std::string str(bool match = false) const;
 };
 
 using DemangledTemplateParameterPtr = std::shared_ptr<DemangledTemplateParameter>;
