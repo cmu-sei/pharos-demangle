@@ -674,7 +674,14 @@ StringOutput::str_template_parameter(DemangledTemplateParameter const & p) const
     if (p.type->symbol_type == SymbolType::ClassMethod
         || (p.type->is_func && p.type->is_member))
     {
-      stream << '{' << str(p.type) << ',' << p.constant_value << '}';
+      stream << '{' << str(p.type);
+      if (p.constant_value >= 1) {
+        stream << ',' << p.type->n1;
+      }
+      if (p.constant_value >= 2) {
+        stream << ',' << p.type->n2;
+      }
+      stream << '}';
     } else {
       stream << '&' << str(p.type);
     }
@@ -1812,7 +1819,17 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
         progress("constant function pointer template parameter");
         parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
         parameter->pointer = true;
-        parameter->constant_value = get_number();
+        parameter->type->n1 = get_number();
+        parameter->constant_value = 1;
+        break;
+       case 'I':
+        advance_to_next_char();
+        progress("constant member pointer template parameter");
+        parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
+        parameter->pointer = true;
+        parameter->type->n1 = get_number();
+        parameter->type->n2 = get_number();
+        parameter->constant_value = 2;
         break;
        case 'S':
         // Empty non-type parameter pack.  Treat similar to $$V
