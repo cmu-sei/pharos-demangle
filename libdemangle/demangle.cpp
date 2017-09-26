@@ -1913,7 +1913,9 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
           // has a leading zero digit, which is not required.  Thus it signals a strangely
           // handled "anonymous namespace" with a discarded unqie identifier.
           if (get_current_char() == 'A') {
-            t->name.push_back(get_anonymous_namespace());
+            auto ns = get_anonymous_namespace();
+            t->name.push_back(ns);
+            name_stack.push_back(std::move(ns));
           }
           else {
             uint64_t number = get_number();
