@@ -14,7 +14,7 @@ enum class Code : unsigned {
 char const * code_string(Code c);
 
 template <typename T>
-T & operator<<(T s, Code c) {
+T & operator<<(T & s, Code c) {
   return s << code_string(c);
 }
 
