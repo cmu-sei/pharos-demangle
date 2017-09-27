@@ -263,6 +263,44 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   return std::move(node);
 }
 
+JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
+{
+  auto node = builder.object();
+  auto & obj = *node;
+
+  handle_symbol_type(obj, sym);
+  handle_scope(obj, sym);
+
+  auto add_string = [&obj](char const * name, std::string && val) {
+                      if (!val.empty()) {
+                        obj.add(name, std::move(val));
+                      }
+                    };
+
+  if (sym.symbol_type == SymbolType::GlobalFunction
+      || sym.symbol_type == SymbolType::ClassMethod)
+  {
+    if (!sym.calling_convention.empty()) {
+      obj.add("calling_convention", sym.calling_convention);
+    }
+    handle_distance(obj, sym);
+    StringOutput so;
+    add_string("class_name", so.get_class_name(sym));
+    add_string("function_name", so.get_method_name(sym));
+    add_string("function_signature", so.get_method_signature(sym));
+
+    auto args = builder.array();
+    for (auto & arg : sym.args) {
+      args->add(so(*arg));
+    }
+    obj.add("args", std::move(args));
+    add_string("return_type", so(*sym.retval));
+  }
+
+  return std::move(node);
+}
+
+
 } // namespace demangle
 
 /* Local Variables:   */

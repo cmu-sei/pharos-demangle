@@ -21,6 +21,7 @@ class Demangler {
   bool debug = false;
   bool nosym = false;
   bool raw = false;
+  bool minimal = false;
   bool batch = false;
   std::unique_ptr<Builder> builder;
   std::unique_ptr<JsonOutput> json_output;
@@ -38,6 +39,9 @@ class Demangler {
   }
   void set_raw(bool val) {
     raw = val;
+  }
+  void set_minimal(bool val) {
+    minimal = val;
   }
   void set_batch(bool val) {
     batch = val;
@@ -65,7 +69,8 @@ bool Demangler::demangle(std::string const & mangled) const
   try {
     auto t = demangle::visual_studio_demangle(mangled, debug);
     if (builder) {
-      auto node = raw ? json_output->raw(*t) : json_output->convert(*t);
+      auto node = raw ? json_output->raw(*t) :
+                  (minimal ? json_output->minimal(*t) : json_output->convert(*t));
       node->add("symbol", mangled);
       node->add("demangled", str(*t));
       std::cout << *node;
@@ -188,6 +193,7 @@ int main(int argc, char **argv)
     ("debug,d",   "Output demangling debugging spew")
     ("json,j",    "JSON output")
     ("raw",       "Raw JSON output")
+    ("minimal",   "Minimal JSON output")
     ("batch",     "JSON objects as newline-separated, rather than in a list")
     ;
 
@@ -255,8 +261,16 @@ int main(int argc, char **argv)
   if (vm.count("json")) {
     demangler.set_json(true);
   }
+  if (vm.count("raw") && vm.count("minimal")) {
+    std::cerr << "Cannot use --raw and --minimal at the same time" << std::endl;
+    return EXIT_FAILURE;
+  }
+
   if (vm.count("raw")) {
     demangler.set_raw(true);
+  }
+  if (vm.count("minimal")) {
+    demangler.set_minimal(true);
   }
   if (vm.count("batch")) {
     demangler.set_batch(true);

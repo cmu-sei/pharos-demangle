@@ -25,6 +25,7 @@ class JsonOutput {
     return convert(sym);
   }
   ObjectRef raw(DemangledType const & sym) const;
+  ObjectRef minimal(DemangledType const & sym) const;
 
  private:
   Builder const & builder;
