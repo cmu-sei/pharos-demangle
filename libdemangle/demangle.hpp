@@ -234,6 +234,7 @@ class StringOutput {
     std::string operator()(DemangledType const & sym);
     std::string get_class_name(DemangledType const & sym);
     std::string get_method_name(DemangledType const & sym);
+    std::string get_method_signature(DemangledType const & sym);
 
   private:
     bool match = false;

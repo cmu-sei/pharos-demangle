@@ -400,6 +400,21 @@ StringOutput::get_method_name(DemangledType const & sym)
 }
 
 std::string
+StringOutput::get_method_signature(DemangledType const & sym)
+{
+  std::string method_name = get_method_name(sym);
+  if (method_name.empty()) {
+    return std::string();
+  }
+  std::ostringstream stream;
+  stream << method_name;
+  stream << str_template_parameters();
+  stream << str_function_arguments();
+  stream << str_storage_properties(Space::APPEND);
+  return stream.str();
+}
+
+std::string
 StringOutput::get_class_name(DemangledType const & sym)
 {
   t = &sym;
