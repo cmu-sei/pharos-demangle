@@ -12,9 +12,38 @@ namespace {
 
 class Converter {
  private:
+  enum manip { BREAK };
+
+  struct ConvStream {
+    ConvStream(std::ostream & s) : stream(s) {}
+
+    template <typename T>
+    ConvStream & operator<<(T && val) {
+      if (std_break) {
+        stream << ' ';
+        std_break = false;
+      }
+      stream << std::forward<T>(val);
+      return *this;
+    }
+
+    ConvStream & operator<<(manip val) {
+      switch (val) {
+       case BREAK:
+        std_break = true;
+        break;
+      }
+      return *this;
+    }
+
+    std::ostream & stream;
+    bool std_break = false;
+  };
+
   TextOutput::Attributes const & attr;
-  std::ostream & stream;
+  ConvStream stream;
   DemangledType const & t;
+
  public:
   Converter(TextOutput::Attributes const & a, std::ostream & s, DemangledType const & dt)
     : attr(a), stream(s), t(dt)
@@ -22,7 +51,7 @@ class Converter {
   void operator()();
  private:
   Converter sub(DemangledType const & dt) {
-    return Converter(attr, stream, dt);
+    return Converter(attr, stream.stream, dt);
   }
   void do_name(DemangledType const & n);
   void do_name(FullyQualifiedName const & name);
@@ -127,7 +156,7 @@ void Converter::do_name(
     break;
 
    case Code::CLASS: case Code::STRUCT: case Code::UNION: case Code::ENUM:
-    stream << name.simple_code << ' ';
+    stream << name.simple_code << BREAK;
     do_name(name.name);
     break;
 
@@ -236,7 +265,6 @@ void Converter::do_pointer(
   auto & inner = *type.inner_type;
   if (inner.is_func) {
   } else if (inner.is_array) {
-    
   } else {
     do_type(inner);
     do_pointer_type(type);
@@ -261,7 +289,7 @@ void Converter::do_type(
   }
   do_name(type);
   if (name) {
-    stream << ' ';
+    stream << BREAK;
     name();
   }
 }
@@ -307,27 +335,15 @@ void Converter::do_array(
 void Converter::do_cv(
   DemangledType const & type)
 {
-  if (type.is_const) {
-    stream << "const";
-    if (type.is_volatile) {
-      stream << ' ';
-    }
-  }
-  if (type.is_volatile) {
-    stream << "volatile";
-  }
+  if (type.is_const) stream << "const" << BREAK;
+  if (type.is_volatile) stream << "volatile" << BREAK;
 }
 
 void Converter::do_refspec(
   DemangledType const & fn)
 {
-  if (fn.is_reference) {
-    stream << '&';
-    if (fn.is_refref) {
-      stream << ' ';
-    }
-  }
-  if (fn.is_refref) stream << "&&";
+  if (fn.is_reference) stream << '&' << BREAK;
+  if (fn.is_refref) stream << "&&" << BREAK;
 }
 
 } // unnamed namespace
