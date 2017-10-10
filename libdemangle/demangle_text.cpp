@@ -263,8 +263,19 @@ void Converter::do_pointer(
   std::function<void()> name)
 {
   auto & inner = *type.inner_type;
-  if (inner.is_func) {
-  } else if (inner.is_array) {
+  if (inner.is_func || inner.is_array) {
+    auto iname = [&name, &type]() {
+      stream << '(';
+      do_pointer_type(type);
+      do_cv(type);
+      if (name) name();
+      stream << ')';
+    };
+    if (inner.is_func) {
+      auto save = tset(retval_, type.inner_type->retval.get());
+      do_type(*retval_, name);
+      return;
+    }
   } else {
     do_type(inner);
     do_pointer_type(type);
@@ -298,19 +309,19 @@ void Converter::do_function(
   DemangledType const & fn)
 {
   auto name = [this, &fn]() {
-                if (fn.symbol_type == SymbolType::GlobalFunction
-                    || fn.symbol_type == SymbolType::ClassMethod
-                    || fn.symbol_type == SymbolType::VtorDisp)
-                {
-                  if (!fn.name.empty()) {
-                    do_name(fn.name);
-                    do_template_params(fn.name.back()->template_parameters);
-                  }
-                  do_args(fn.args);
-                  do_cv(fn);
-                  do_refspec(fn);
-                }
-             };
+    if (fn.symbol_type == SymbolType::GlobalFunction
+        || fn.symbol_type == SymbolType::ClassMethod
+        || fn.symbol_type == SymbolType::VtorDisp)
+    {
+      if (!fn.name.empty()) {
+        do_name(fn.name);
+        do_template_params(fn.name.back()->template_parameters);
+      }
+      do_args(fn.args);
+      do_cv(fn);
+      do_refspec(fn);
+    }
+  };
   auto save = tset(retval_, fn.retval.get());
   do_type(*retval_, name);
 }
