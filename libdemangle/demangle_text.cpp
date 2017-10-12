@@ -5,6 +5,7 @@
 #include <sstream>              // std::ostringstream
 #include <iterator>             // std::prev
 #include <functional>           // std::function
+#include <cassert>              // assert
 
 namespace demangle {
 
@@ -109,7 +110,6 @@ class Converter {
   void do_pointer(DemangledType const & ptr, std::function<void()> name = nullptr);
   void do_pointer_type(DemangledType const & ptr);
   void do_function(DemangledType const & fn);
-  void do_array(DemangledType const & arr, std::function<void()> name = nullptr);
   void do_cv(DemangledType const & type);
   void do_refspec(DemangledType const & fn);
 
@@ -327,6 +327,8 @@ void Converter::do_pointer(
       do_type(*retval_, iname);
       return;
     }
+    assert(inner.is_array);
+    do_type(*type.inner_type, iname);
   } else {
     do_type(inner);
     do_pointer_type(type);
@@ -341,12 +343,22 @@ void Converter::do_type(
   DemangledType const & type,
   std::function<void()> name)
 {
+  if (type.is_array) {
+    auto aname = [this, &type, name]() {
+      if (name) {
+        name();
+      }
+      if (name) {
+        name();
+      }
+      for (auto dim : type.dimensions) {
+        stream << '[' << dim << ']';
+      }
+    };
+    name = aname;
+  }
   if (type.is_pointer || type.is_reference || type.is_refref) {
     do_pointer(type, name);
-    return;
-  }
-  if (type.is_array) {
-    do_array(type, name);
     return;
   }
   do_name(type);
@@ -374,23 +386,6 @@ void Converter::do_function(
   };
   auto save = tset(retval_, fn.retval.get());
   do_type(*retval_, name);
-}
-
-void Converter::do_array(
-  DemangledType const & arr,
-  std::function<void()> name)
-{
-  auto & inner = *arr.inner_type;
-  if (inner.is_func) {
-  } else {
-    do_type(inner);
-    if (name) {
-      name();
-    }
-    for (auto dim : arr.dimensions) {
-      stream << '[' << dim << ']';
-    }
-  }
 }
 
 void Converter::do_cv(
