@@ -229,19 +229,19 @@ StringOutput::str_storage_properties(Space space, bool is_retval) const
 {
   std::ostringstream stream;
   auto out = [&stream, &space](char const * s) {
-               switch (space) {
-                case Space::BOTH:
-                 space = Space::APPEND;
-                 // Fall through
-                case Space::PREPEND:
-                 stream << ' '; break;
-                case Space::NONE:
-                 space = Space::PREPEND; break;
-                case Space::APPEND: break;
-               }
-               stream << s;
-               if (space == Space::APPEND) stream << ' ';
-             };
+    switch (space) {
+     case Space::BOTH:
+      space = Space::APPEND;
+      // Fall through
+     case Space::PREPEND:
+      stream << ' '; break;
+     case Space::NONE:
+      space = Space::PREPEND; break;
+     case Space::APPEND: break;
+    }
+    stream << s;
+    if (space == Space::APPEND) stream << ' ';
+  };
 
   // The MSVC standard is to discard the const and volatile qualifiers on return values that
   // are pointers, references or rvalue references...  Or something like that.  This is
@@ -834,13 +834,13 @@ VisualStudioDemangler::get_managed_properties(DemangledTypePtr & t, int & cli_ar
       {
         // C++/CLI array
         auto xdigit = [this](char d) -> int {
-                        if (d >= '0' && d <= '9')
-                          return (d - '0');
-                        else if (d >= 'a' && d <= 'f')
-                          return (d - 'a');
-                        else if (d >= 'A' && d <= 'F')
-                          return (d - 'A');
-                        else bad_code(d, "hex digit"); };
+          if (d >= '0' && d <= '9')
+            return (d - '0');
+          else if (d >= 'a' && d <= 'f')
+            return (d - 'a');
+          else if (d >= 'A' && d <= 'F')
+            return (d - 'A');
+          else bad_code(d, "hex digit"); };
         int val = xdigit(c) * 16;
         c = get_next_char();
         val += xdigit(c);
