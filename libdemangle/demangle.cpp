@@ -1546,6 +1546,8 @@ VisualStudioDemangler::update_method(DemangledTypePtr & t, Scope scope,
                                      MethodProperty prop, Distance distance)
 {
   t->symbol_type = SymbolType::ClassMethod;
+  t->is_func = true;
+  t->is_member = true;
   t->scope = scope;
   t->method_property = prop;
   t->distance = distance;
@@ -1555,6 +1557,8 @@ VisualStudioDemangler::update_method(DemangledTypePtr & t, Scope scope,
 DemangledTypePtr &
 VisualStudioDemangler::update_member(DemangledTypePtr & t, Scope scope, MethodProperty prop)
 {
+  t->is_func = true;
+  t->is_member = true;
   t->symbol_type = SymbolType::StaticClassMember;
   t->scope = scope;
   t->method_property = prop;
@@ -1605,7 +1609,8 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
    case 'G': return update_method(t, Scope::Private, MethodProperty::Thunk, Distance::Near);
    case 'H': return update_method(t, Scope::Private, MethodProperty::Thunk, Distance::Far);
 
-   case 'I': return update_method(t, Scope::Protected, MethodProperty::Ordinary, Distance::Near);
+   case 'I': return update_method(t, Scope::Protected, MethodProperty::Ordinary,
+                                  Distance::Near);
    case 'J': return update_method(t, Scope::Protected, MethodProperty::Ordinary, Distance::Far);
    case 'K': return update_method(t, Scope::Protected, MethodProperty::Static, Distance::Near);
    case 'L': return update_method(t, Scope::Protected, MethodProperty::Static, Distance::Far);
@@ -1624,8 +1629,12 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
    case 'X': return update_method(t, Scope::Public, MethodProperty::Thunk, Distance::Far);
 
     // Codes Y & Z are for global (non-method) functions.
-   case 'Y': t->symbol_type = SymbolType::GlobalFunction; t->distance = Distance::Near; return t;
-   case 'Z': t->symbol_type = SymbolType::GlobalFunction; t->distance = Distance::Far; return t;
+   case 'Y':
+    t->symbol_type = SymbolType::GlobalFunction; t->is_func = true;
+    t->distance = Distance::Near; return t;
+   case 'Z':
+    t->symbol_type = SymbolType::GlobalFunction; t->is_func = true;
+    t->distance = Distance::Far; return t;
 
    case '$':
     c = get_current_char();
