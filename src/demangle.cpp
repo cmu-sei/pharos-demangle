@@ -9,6 +9,7 @@
 
 #include <libdemangle/demangle.hpp>
 #include <libdemangle/demangle_json.hpp>
+#include <libdemangle/demangle_text.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
@@ -25,11 +26,11 @@ class Demangler {
   bool batch = false;
   std::unique_ptr<Builder> builder;
   std::unique_ptr<JsonOutput> json_output;
-  mutable demangle::StringOutput str;
+  mutable demangle::TextOutput str;
 
  public:
-  void set_winmatch(bool val) {
-    str = demangle::StringOutput(val);
+  void set_winmatch(bool) {
+    str = demangle::TextOutput();
   }
   void set_nosym(bool val) {
     nosym = val;
@@ -72,13 +73,13 @@ bool Demangler::demangle(std::string const & mangled) const
       auto node = raw ? json_output->raw(*t) :
                   (minimal ? json_output->minimal(*t) : json_output->convert(*t));
       node->add("symbol", mangled);
-      node->add("demangled", str(*t));
+      node->add("demangled", str.convert(*t));
       std::cout << *node;
       if (batch) {
         std::cout << std::endl;
       }
     } else {
-      auto dem = str(*t);
+      auto dem = str.convert(*t);
       if (!nosym) {
         std::cout << mangled << " ";
       }
