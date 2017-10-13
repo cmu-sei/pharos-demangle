@@ -73,6 +73,17 @@ class Converter {
       return (*this) << manip_of(c) << raw(c) << manip_of(c);
     }
 
+    ConvStream & operator<<(char const * s) {
+      if (!*s) {
+        return *this;
+      }
+      (*this) << manip_of(*s);
+      while (*(s + 1)) {
+        (*this) << raw(*s++);
+      }
+      return (*this) << raw(*s) << manip_of(*s);
+    }
+
     ConvStream & operator<<(std::string const & s) {
       if (s.empty()) {
         return *this;
@@ -134,6 +145,7 @@ class Converter {
   }
 };
 
+
 void Converter::operator()()
 {
   switch (t.symbol_type) {
@@ -142,6 +154,15 @@ void Converter::operator()()
    case SymbolType::GlobalFunction:
    case SymbolType::GlobalObject:
     do_type(t,  [this] { do_name(t); });
+    break;
+   case SymbolType::Unspecified:
+   case SymbolType::GlobalThing1:
+   case SymbolType::GlobalThing2:
+   case SymbolType::String:
+   case SymbolType::VtorDisp:
+   case SymbolType::StaticGuard:
+   case SymbolType::MethodThunk:
+   case SymbolType::HexSymbol:
     break;
   }
 }
