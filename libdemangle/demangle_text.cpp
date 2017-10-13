@@ -109,7 +109,7 @@ class Converter {
   void do_type(DemangledType const & type, std::function<void()> name = nullptr);
   void do_pointer(DemangledType const & ptr, std::function<void()> name = nullptr);
   void do_pointer_type(DemangledType const & ptr);
-  void do_function(DemangledType const & fn);
+  void do_function(DemangledType const & fn, std::function<void()> name = nullptr);
   void do_cv(DemangledType const & type);
   void do_refspec(DemangledType const & fn);
 
@@ -136,6 +136,14 @@ class Converter {
 
 void Converter::operator()()
 {
+  switch (t.symbol_type) {
+   case SymbolType::StaticClassMember:
+   case SymbolType::ClassMethod:
+   case SymbolType::GlobalFunction:
+   case SymbolType::GlobalObject:
+    do_type(t,  [this] { do_name(t); });
+    break;
+  }
 }
 
 void Converter::do_name(
@@ -176,6 +184,7 @@ void Converter::do_name(
       // Normal case
       do_name(*frag);
     }
+    do_template_params(frag->template_parameters);
   }
 }
 
@@ -240,9 +249,7 @@ void Converter::do_template_param(
   if (!p.type) {
     stream << p.constant_value;
   } else if (p.pointer) {
-    if (p.type->symbol_type == SymbolType::ClassMethod
-        || (p.type->is_func && p.type->is_member))
-    {
+    if (p.type->is_func && p.type->is_member) {
       stream << '{';
       do_type(*p.type);
       if (p.constant_value >= 1) {
@@ -322,12 +329,6 @@ void Converter::do_pointer(
       if (name) name();
       stream << ')';
     };
-    if (inner.is_func) {
-      auto save = tset(retval_, type.inner_type->retval.get());
-      do_type(*retval_, iname);
-      return;
-    }
-    assert(inner.is_array);
     do_type(*type.inner_type, iname);
   } else {
     do_type(inner);
@@ -361,6 +362,10 @@ void Converter::do_type(
     do_pointer(type, name);
     return;
   }
+  if (type.is_func) {
+    do_function(type, name);
+    return;
+  }
   do_name(type);
   if (name) {
     name();
@@ -368,17 +373,12 @@ void Converter::do_type(
 }
 
 void Converter::do_function(
-  DemangledType const & fn)
+  DemangledType const & fn,
+  std::function<void()> name)
 {
-  auto name = [this, &fn]() {
-    if (fn.symbol_type == SymbolType::GlobalFunction
-        || fn.symbol_type == SymbolType::ClassMethod
-        || fn.symbol_type == SymbolType::VtorDisp)
+  auto fname = [this, &fn, name]() {
     {
-      if (!fn.name.empty()) {
-        do_name(fn.name);
-        do_template_params(fn.name.back()->template_parameters);
-      }
+      if (name) name();
       do_args(fn.args);
       do_cv(fn);
       do_refspec(fn);
