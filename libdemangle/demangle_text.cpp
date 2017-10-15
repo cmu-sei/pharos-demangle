@@ -343,29 +343,21 @@ void Converter::do_pointer(
   DemangledType const & type,
   std::function<void()> name)
 {
-  auto & inner = *type.inner_type;
-  if (inner.is_func || inner.is_array) {
-    auto iname = [this, &name, &type]() {
-      stream << '(';
-      if (type.inner_type->is_member) {
+  auto iname = [this, &name, &type]() {
+    auto & inner = *type.inner_type;
+    bool parens = inner.is_func || inner.is_array;
+    if (parens) stream << '(';
+    if (type.inner_type->is_member) {
         // Method pointer
         do_name(*type.inner_type);
         stream << raw("::");
-      }
-      do_pointer_type(type);
-      do_cv(type);
-      if (name) name();
-      stream << ')';
-    };
-    do_type(*type.inner_type, iname);
-  } else {
-    do_type(inner);
+    }
     do_pointer_type(type);
     do_cv(type);
-    if (name) {
-      name();
-    }
-  }
+    if (name) name();
+    if (parens) stream << ')';
+  };
+  do_type(*type.inner_type, iname);
 }
 
 void Converter::do_type(
@@ -375,12 +367,7 @@ void Converter::do_type(
   auto pname = name;
   if (type.is_array) {
     auto aname = [this, &type, name]() {
-      if (name) {
-        name();
-      }
-      if (name) {
-        name();
-      }
+      if (name) name();
       for (auto dim : type.dimensions) {
         stream << '[' << dim << ']';
       }
