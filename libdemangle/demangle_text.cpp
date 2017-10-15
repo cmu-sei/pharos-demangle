@@ -60,13 +60,18 @@ class Converter {
     }
 
     static manip manip_of(char c) {
-      if (c == '_' || std::isalnum(c)) {
-        return WBREAK;
+      switch (c) {
+       case '(': case ')': case '<': case '>': return NBREAK;
+       case '_': return WBREAK;
+       default:
+        if (c == '_' || std::isalnum(c)) {
+          return WBREAK;
+        }
+        if (std::iswspace(c)) {
+          return NBREAK;
+        }
+        return PBREAK;
       }
-      if (std::iswspace(c)) {
-        return NBREAK;
-      }
-      return PBREAK;
     }
 
     ConvStream & operator<<(char c) {
