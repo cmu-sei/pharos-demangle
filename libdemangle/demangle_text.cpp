@@ -157,8 +157,10 @@ void Converter::operator()()
    case SymbolType::StaticClassMember:
    case SymbolType::ClassMethod:
    case SymbolType::GlobalFunction:
-   case SymbolType::GlobalObject:
     do_type(t,  [this] { do_name(t); });
+    break;
+   case SymbolType::GlobalObject:
+    do_type(t,  [this] { do_name(t.instance_name); });
     break;
    case SymbolType::Unspecified:
    case SymbolType::GlobalThing1:
@@ -370,6 +372,7 @@ void Converter::do_type(
   DemangledType const & type,
   std::function<void()> name)
 {
+  auto pname = name;
   if (type.is_array) {
     auto aname = [this, &type, name]() {
       if (name) {
@@ -382,19 +385,19 @@ void Converter::do_type(
         stream << '[' << dim << ']';
       }
     };
-    name = aname;
+    pname = aname;
   }
   if (type.is_pointer || type.is_reference || type.is_refref) {
-    do_pointer(type, name);
+    do_pointer(type, pname);
     return;
   }
   if (type.is_func) {
-    do_function(type, name);
+    do_function(type, pname);
     return;
   }
   do_name(type);
-  if (name) {
-    name();
+  if (pname) {
+    pname();
   }
 }
 
@@ -411,7 +414,7 @@ void Converter::do_function(
     }
   };
   auto save = tset(retval_, fn.retval.get());
-  do_type(*retval_, name);
+  do_type(*retval_, fname);
 }
 
 void Converter::do_cv(
