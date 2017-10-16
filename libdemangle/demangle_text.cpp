@@ -9,7 +9,7 @@
 
 namespace demangle {
 
-namespace {
+namespace detail {
 
 class Converter {
  private:
@@ -418,7 +418,7 @@ void Converter::do_refspec(
   if (fn.is_refref) stream << "&&";
 }
 
-} // unnamed namespace
+} // namespace detail
 
 std::string TextOutput::convert(DemangledType const & sym) const
 {
@@ -429,7 +429,7 @@ std::string TextOutput::convert(DemangledType const & sym) const
 
 void TextOutput::convert_(std::ostream & stream, DemangledType const & sym) const
 {
-  Converter(attr, stream, sym)();
+  detail::Converter(attr, stream, sym)();
 }
 
 
