@@ -12,9 +12,10 @@ namespace demangle {
 namespace detail {
 
 class Converter {
- private:
+ public:
   enum manip { BREAK, WBREAK, PBREAK, NBREAK };
 
+ private:
   template <typename T>
   struct Raw {
     Raw(T x) : val(x) {}
@@ -61,16 +62,13 @@ class Converter {
 
     static manip manip_of(char c) {
       switch (c) {
-       case '(': case ')': case '<': case '>': return NBREAK;
+       case '&': return PBREAK;
        case '_': return WBREAK;
        default:
         if (c == '_' || std::isalnum(c)) {
           return WBREAK;
         }
-        if (std::iswspace(c)) {
-          return NBREAK;
-        }
-        return PBREAK;
+        return NBREAK;
       }
     }
 
@@ -150,6 +148,16 @@ class Converter {
   }
 };
 
+template <typename Stream>
+Stream operator<<(Stream stream, Scope scope) {
+  switch (scope) {
+   case Scope::Unspecified: break;
+   case Scope::Private: return stream << "private:" << Converter::BREAK;
+   case Scope::Protected: return stream << "protected:" << Converter::BREAK;
+   case Scope::Public: return stream << "public:" << Converter::BREAK;
+  }
+  return stream;
+}
 
 void Converter::operator()()
 {
@@ -367,6 +375,7 @@ void Converter::do_type(
   DemangledType const & type,
   std::function<void()> name)
 {
+  stream << type.scope;
   auto pname = name;
   if (type.is_array) {
     auto aname = [this, &type, name]() {
@@ -386,6 +395,7 @@ void Converter::do_type(
     return;
   }
   do_name(type);
+  do_cv(type);
   if (pname) {
     pname();
   }
@@ -415,6 +425,7 @@ void Converter::do_cv(
 {
   if (type.is_const) stream << "const";
   if (type.is_volatile) stream << "volatile";
+  if (type.ptr64) stream << "__ptr64";
 }
 
 void Converter::do_refspec(
