@@ -117,8 +117,8 @@ class Converter {
   }
   void do_name(DemangledType const & n);
   void do_name(FullyQualifiedName const & name);
-  void do_name(FullyQualifiedName::const_iterator b,
-               FullyQualifiedName::const_iterator e);
+  void do_name(FullyQualifiedName::const_reverse_iterator b,
+               FullyQualifiedName::const_reverse_iterator e);
   void do_template_params(DemangledTemplate const & tmpl);
   void do_template_param(DemangledTemplateParameter const & param);
   void do_args(FunctionArgs const & args);
@@ -177,12 +177,12 @@ void Converter::operator()()
 void Converter::do_name(
   FullyQualifiedName const & name)
 {
-  do_name(std::begin(name), std::end(name));
+  do_name(name.rbegin(), name.rend());
 }
 
 void Converter::do_name(
-  FullyQualifiedName::const_iterator b,
-  FullyQualifiedName::const_iterator e)
+  FullyQualifiedName::const_reverse_iterator b,
+  FullyQualifiedName::const_reverse_iterator e)
 {
   // Iterate over the name fragments
   for (auto i = b; i != e; ++i) {
