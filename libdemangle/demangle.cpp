@@ -2118,7 +2118,7 @@ int64_t VisualStudioDemangler::get_number() {
 
 DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
   // Storage class for methods
-  if (t->is_func && t->is_member) {
+  if (t->symbol_type == SymbolType::Unspecified && t->is_func && t->is_member) {
     auto tmp = std::make_shared<DemangledType>();
     get_storage_class_modifiers(tmp);
     get_storage_class(tmp);
