@@ -347,9 +347,12 @@ void Converter::do_pointer(
     auto & inner = *type.inner_type;
     bool parens = inner.is_func || inner.is_array;
     if (parens) stream << '(';
-    if (type.inner_type->is_member) {
+    if (inner.is_func) {
+      stream << inner.calling_convention;
+    }
+    if (inner.is_member) {
         // Method pointer
-        do_name(*type.inner_type);
+        do_name(inner);
         stream << raw("::");
     }
     do_pointer_type(type);
@@ -394,6 +397,9 @@ void Converter::do_function(
 {
   auto fname = [this, &fn, name]() {
     {
+      if (fn.symbol_type != SymbolType::Unspecified) {
+        stream << fn.calling_convention;
+      }
       if (name) name();
       do_args(fn.args);
       do_cv(fn);
