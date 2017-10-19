@@ -126,6 +126,7 @@ class Converter {
   void do_function(DemangledType const & fn, std::function<void()> name = nullptr);
   void do_cv(DemangledType const & type);
   void do_refspec(DemangledType const & fn);
+  void do_method_properties(DemangledType const & m);
 
   bool template_parameters_ = true;
   DemangledType const * retval_ = nullptr;
@@ -157,6 +158,15 @@ Stream operator<<(Stream stream, Scope scope) {
    case Scope::Public: return stream << "public:" << Converter::BREAK;
   }
   return stream;
+}
+
+void Converter::do_method_properties(DemangledType const & m)
+{
+  if (m.extern_c) stream << "extern \"C\"";
+  if (m.method_property == MethodProperty::Thunk) stream << "[thunk]:";
+  stream << m.scope;
+  if (m.method_property == MethodProperty::Static) stream << "static";
+  if (m.method_property == MethodProperty::Virtual) stream << "virtual";
 }
 
 void Converter::operator()()
@@ -375,7 +385,7 @@ void Converter::do_type(
   DemangledType const & type,
   std::function<void()> name)
 {
-  stream << type.scope;
+  do_method_properties(type);
   auto pname = name;
   if (type.is_array) {
     auto aname = [this, &type, name]() {
