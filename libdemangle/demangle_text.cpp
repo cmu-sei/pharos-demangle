@@ -162,8 +162,12 @@ Stream operator<<(Stream stream, Scope scope) {
 
 void Converter::do_method_properties(DemangledType const & m)
 {
-  if (m.extern_c) stream << "extern \"C\"";
-  if (m.method_property == MethodProperty::Thunk) stream << "[thunk]:";
+  if (attr[TextOutput::OUTPUT_EXTERN] && m.extern_c) stream << "extern \"C\"";
+  if (attr[TextOutput::OUTPUT_THUNKS]
+      && m.method_property == MethodProperty::Thunk)
+  {
+    stream << "[thunk]:";
+  }
   stream << m.scope;
   if (m.method_property == MethodProperty::Static) stream << "static";
   if (m.method_property == MethodProperty::Virtual) stream << "virtual";

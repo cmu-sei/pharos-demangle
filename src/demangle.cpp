@@ -30,7 +30,7 @@ class Demangler {
 
  public:
   void set_winmatch(bool) {
-    str = demangle::TextOutput();
+    str.set_attributes(demangle::TextOutput::undname());
   }
   void set_nosym(bool val) {
     nosym = val;

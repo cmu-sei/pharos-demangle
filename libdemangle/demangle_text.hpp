@@ -14,7 +14,9 @@ class TextOutput {
     // Output class template parameters on ctors and dtors
     CDTOR_CLASS_TEMPLATE_PARAMETERS = 1,
     // Output Microsoft legacy named names for [u]intX_t simple types
-    MS_SIMPLE_TYPES                 = 2
+    MS_SIMPLE_TYPES                 = 2,
+    OUTPUT_THUNKS                   = 4,
+    OUTPUT_EXTERN                   = 8
   };
 
   class Attributes {
@@ -39,13 +41,22 @@ class TextOutput {
   };
 
   static Attributes undname() {
-    return Attributes();
+    auto attr =  Attributes();
+    attr.set(OUTPUT_EXTERN);
+    attr.set(OUTPUT_THUNKS);
+    attr.set(CDTOR_CLASS_TEMPLATE_PARAMETERS);
+    attr.set(MS_SIMPLE_TYPES);
+    return attr;
   };
 
  public:
   TextOutput() = default;
   TextOutput(Attributes a) : attr(a) {}
   std::string convert(DemangledType const & sym) const;
+
+  void set_attributes(Attributes a) {
+    attr = a;
+  }
 
   template <typename OStream>
   OStream & convert(OStream & stream, DemangledType const & sym) const {
