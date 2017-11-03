@@ -303,14 +303,14 @@ void Converter::do_template_params(
 {
   if (template_parameters_ && !tmpl.empty()) {
     stream << '<';
-    auto b = std::begin(tmpl);
-    auto e = std::end(tmpl);
-    for (auto i = b; i != e; ++i) {
-      if (i != b) {
-        stream << ',';
-      }
-      auto & tp = *i;
+    bool first = true;
+    for (auto & tp : tmpl) {
       if (tp) {
+        if (first) {
+          first = false;
+        } else {
+          stream << ',';
+        }
         do_template_param(*tp);
       }
     }
