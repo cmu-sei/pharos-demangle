@@ -200,7 +200,7 @@ void Converter::do_name(
       } else {
         auto save = tset(template_parameters_,
                          stream.attr[TextOutput::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
-        do_name(**std::prev(i));
+        do_name(std::prev(i), i);
       }
     } else {
       // Normal case
