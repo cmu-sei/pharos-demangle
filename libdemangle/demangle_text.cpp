@@ -12,106 +12,78 @@ namespace demangle {
 namespace detail {
 
 class Converter {
- public:
-  enum manip { BREAK, WBREAK, PBREAK, NBREAK };
-
- private:
-  template <typename T>
-  struct Raw {
-    Raw(T x) : val(x) {}
-    T val;
-  };
-
-  template <typename T>
-  static Raw<T> raw(T x) { return Raw<T>{x}; }
-
   struct ConvStream {
-    ConvStream(std::ostream & s) : stream(s) {}
+    std::ostream & stream;
+    TextOutput::Attributes const & attr;
+
+    ConvStream(std::ostream & s, TextOutput::Attributes const & a) : stream(s), attr(a) {}
 
     template <typename T>
-    ConvStream & operator<<(T && val) {
-      return redir(std::forward<T>(val));
+    ConvStream & operator<<(T && x) {
+      std::ostringstream os;
+      os << std::forward<T>(x);
+      return (*this) << os.str();
     }
 
-    template <typename T>
-    ConvStream & operator<<(Raw<T> val) {
-      return redir(std::forward<T>(val.val));
-    }
-
-    template <typename T>
-    ConvStream & redir(T && val) {
-      if (std_break || wbreak > 1 || pbreak > 1) {
-        stream << ' ';
-      }
-      stream << std::forward<T>(val);
-      std_break = false;
-      wbreak = 0;
-      pbreak = 0;
-      return *this;
-    }
-
-    ConvStream & operator<<(manip val) {
-      switch (val) {
-       case BREAK: std_break = true; break;
-       case WBREAK: ++wbreak; break;
-       case PBREAK: ++pbreak; break;
-       case NBREAK: break;
-      }
-      return *this;
-    }
-
-    static manip manip_of(char c) {
-      switch (c) {
-       case '&': return PBREAK;
-       case '_': return WBREAK;
-       default:
-        if (c == '_' || std::isalnum(c)) {
-          return WBREAK;
-        }
-        return NBREAK;
-      }
-    }
-
-    ConvStream & operator<<(char c) {
-      return (*this) << manip_of(c) << raw(c) << manip_of(c);
-    }
-
-    ConvStream & operator<<(char const * s) {
-      if (!*s) {
-        return *this;
-      }
-      (*this) << manip_of(*s);
-      while (*(s + 1)) {
-        (*this) << raw(*s++);
-      }
-      return (*this) << raw(*s) << manip_of(*s);
+    ConvStream & operator<<(std::string && x) {
+      return (*this) << const_cast<std::string const &>(x);
     }
 
     ConvStream & operator<<(std::string const & s) {
-      if (s.empty()) {
-        return *this;
+      // if (last == ' ' && !s.empty() && s.front() == ' ') {
+      //   stream << s.substr(1);
+      // } else {
+        stream << s;
+      // }
+      if (!s.empty()) {
+        last = s.back();
       }
-      return (*this) << manip_of(s.front()) << raw(s) << manip_of(s.back());
+      fixup();
+      return *this;
     }
 
-    std::ostream & stream;
-    size_t wbreak = 0;
-    size_t pbreak = 0;
-    bool std_break = false;
+    ConvStream & operator<<(char const * s) {
+      return (*this) << std::string(s);
+    }
+
+    ConvStream & operator<<(char c) {
+      // if (c == ' ' && c == last) {
+      //   return *this;
+      // }
+      if ((c == '<' || c == '>') && c == last
+          && attr[TextOutput::SPACE_BETWEEN_TEMPLATE_BRACKETS])
+      {
+        (*this) << ' ';
+      }
+      stream << c;
+      last = c;
+      fixup();
+      return *this;
+    }
+
+    void fixup() {
+      if (last == ',' && attr[TextOutput::SPACE_AFTER_COMMA]) {
+        (*this) << ' ';
+        last = ' ';
+      }
+    }
+
+    char last;
   };
 
-  TextOutput::Attributes const & attr;
   ConvStream stream;
   DemangledType const & t;
 
+  enum spaceloc_t { BEFORE, AFTER };
+
  public:
   Converter(TextOutput::Attributes const & a, std::ostream & s, DemangledType const & dt)
-    : attr(a), stream(s), t(dt)
+    : stream(s, a), t(dt)
   {}
   void operator()();
  private:
   Converter sub(DemangledType const & dt) {
-    return Converter(attr, stream.stream, dt);
+    return Converter(stream.attr, stream.stream, dt);
   }
   void do_name(DemangledType const & n);
   void do_name(FullyQualifiedName const & name);
@@ -124,7 +96,7 @@ class Converter {
   void do_pointer(DemangledType const & ptr, std::function<void()> name = nullptr);
   void do_pointer_type(DemangledType const & ptr);
   void do_function(DemangledType const & fn, std::function<void()> name = nullptr);
-  void do_cv(DemangledType const & type);
+  void do_cv(DemangledType const & type, spaceloc_t sl);
   void do_refspec(DemangledType const & fn);
   void do_method_properties(DemangledType const & m);
 
@@ -153,24 +125,24 @@ template <typename Stream>
 Stream operator<<(Stream stream, Scope scope) {
   switch (scope) {
    case Scope::Unspecified: break;
-   case Scope::Private: return stream << "private:" << Converter::BREAK;
-   case Scope::Protected: return stream << "protected:" << Converter::BREAK;
-   case Scope::Public: return stream << "public:" << Converter::BREAK;
+   case Scope::Private: return stream << "private: ";
+   case Scope::Protected: return stream << "protected: ";
+   case Scope::Public: return stream << "public: ";
   }
   return stream;
 }
 
 void Converter::do_method_properties(DemangledType const & m)
 {
-  if (attr[TextOutput::OUTPUT_EXTERN] && m.extern_c) stream << "extern \"C\"";
-  if (attr[TextOutput::OUTPUT_THUNKS]
+  if (stream.attr[TextOutput::OUTPUT_EXTERN] && m.extern_c) stream << "extern \"C\"";
+  if (stream.attr[TextOutput::OUTPUT_THUNKS]
       && m.method_property == MethodProperty::Thunk)
   {
     stream << "[thunk]:";
   }
   stream << m.scope;
-  if (m.method_property == MethodProperty::Static) stream << "static";
-  if (m.method_property == MethodProperty::Virtual) stream << "virtual";
+  if (m.method_property == MethodProperty::Static) stream << "static ";
+  if (m.method_property == MethodProperty::Virtual) stream << "virtual ";
 }
 
 void Converter::operator()()
@@ -182,7 +154,7 @@ void Converter::operator()()
     do_type(t,  [this] { do_name(t); });
     break;
    case SymbolType::GlobalObject:
-    do_type(t,  [this] { do_name(t.instance_name); });
+    do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
     break;
    case SymbolType::Unspecified:
    case SymbolType::GlobalThing1:
@@ -209,25 +181,25 @@ void Converter::do_name(
   // Iterate over the name fragments
   for (auto i = b; i != e; ++i) {
     if (i != b) {
-      stream << raw("::");
+      stream << "::";
     }
     auto & frag = *i;
     if (frag->is_embedded) {
       // Embedded symbols get `' around them
-      stream << raw('`');
+      stream << '`';
       sub(*frag)();
-      stream << raw('\'');
+      stream << '\'';
     } else if (frag->is_ctor || frag->is_dtor) {
       // ctors and dtors need to get their name from the class name,
       // which should be the previous name
       if (frag->is_dtor) {
-        stream << raw('~');
+        stream << '~';
       }
       if (i == b) {
-        stream << WBREAK << raw("<ERRNOCLASS>") << WBREAK;
+        stream << "<ERRNOCLASS>";
       } else {
         auto save = tset(template_parameters_,
-                         attr[TextOutput::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
+                         stream.attr[TextOutput::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
         do_name(**std::prev(i));
       }
     } else {
@@ -243,24 +215,32 @@ void Converter::do_name(
   DemangledType const & name)
 {
   auto stype = [this, &name](char const * s) {
-    if (attr[TextOutput::MS_SIMPLE_TYPES]) {
+    if (stream.attr[TextOutput::MS_SIMPLE_TYPES]) {
       stream << s;
     } else {
-      stream << raw("std::") << code_string(name.simple_code);
+      stream << "std::" << code_string(name.simple_code);
     }
   };
 
   switch (name.simple_code) {
    case Code::UNDEFINED:
     if (name.name.empty()) {
-      stream << name.simple_string;
+      if (name.is_anonymous) {
+        stream << "`anonymous namespace";
+        if (stream.attr[TextOutput::OUTPUT_ANONYMOUS_NUMBERS]) {
+          stream << ' ' << name.simple_string;
+        }
+        stream << '\'';
+      } else {
+        stream << name.simple_string;
+      }
     } else {
       do_name(name.name);
     }
     break;
 
    case Code::CLASS: case Code::STRUCT: case Code::UNION: case Code::ENUM:
-    stream << name.simple_code << BREAK;
+    stream << name.simple_code << ' ';
     do_name(name.name);
     break;
 
@@ -275,7 +255,7 @@ void Converter::do_name(
 
    case Code::OP_TYPE:
     if (retval_) {
-      stream << WBREAK << "operator" << BREAK;
+      stream << "operator ";
       do_type(*retval_);
     } else {
       stream << name.simple_code;
@@ -283,9 +263,9 @@ void Converter::do_name(
     break;
 
    case Code::RTTI_BASE_CLASS_DESC:
-    stream << raw("`RTTI Base Class Descriptor at (")
-           << name.n1 << raw(",") << name.n2 << raw(",")
-           << name.n3 << raw(",") << name.n4 << raw(")'");
+    stream << "`RTTI Base Class Descriptor at ("
+           << name.n1 << "," << name.n2 << ","
+           << name.n3 << "," << name.n4 << ")'";
     break;
 
    default:
@@ -368,17 +348,17 @@ void Converter::do_pointer(
   auto iname = [this, &name, &type]() {
     auto & inner = *type.inner_type;
     bool parens = inner.is_func || inner.is_array;
-    if (parens) stream << '(';
+    stream << (parens ? '(' : ' ');
     if (inner.is_func) {
-      stream << inner.calling_convention;
+      stream << inner.calling_convention << ' ';
     }
     if (inner.is_member) {
         // Method pointer
         do_name(inner);
-        stream << raw("::");
+        stream << "::";
     }
     do_pointer_type(type);
-    do_cv(type);
+    do_cv(type, AFTER);
     if (name) name();
     if (parens) stream << ')';
   };
@@ -409,7 +389,7 @@ void Converter::do_type(
     return;
   }
   do_name(type);
-  do_cv(type);
+  do_cv(type, BEFORE);
   if (pname) {
     pname();
   }
@@ -421,25 +401,32 @@ void Converter::do_function(
 {
   auto fname = [this, &fn, name]() {
     {
+      stream << ' ';
       if (fn.symbol_type != SymbolType::Unspecified) {
-        stream << fn.calling_convention;
+        stream << fn.calling_convention << ' ';
       }
       if (name) name();
       do_args(fn.args);
-      do_cv(fn);
+      do_cv(fn, AFTER);
       do_refspec(fn);
     }
   };
-  auto save = tset(retval_, fn.retval.get());
+  auto rv = fn.retval;
+  if (!rv) {
+    rv.reset(new DemangledType("void"));
+  }
+  auto save = tset(retval_, rv.get());
   do_type(*retval_, fname);
 }
 
 void Converter::do_cv(
-  DemangledType const & type)
+  DemangledType const & type, spaceloc_t sl)
 {
-  if (type.is_const) stream << "const";
-  if (type.is_volatile) stream << "volatile";
-  if (type.ptr64) stream << "__ptr64";
+  char const * a = (sl == BEFORE) ? " " : "";
+  char const * b = (sl == AFTER) ? " " : "";
+  if (type.is_const) stream << a << "const" << b;
+  if (type.is_volatile) stream << a << "volatile" << b;
+  if (type.ptr64) stream << " __ptr64";
 }
 
 void Converter::do_refspec(

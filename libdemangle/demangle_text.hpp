@@ -11,12 +11,20 @@ namespace demangle {
 class TextOutput {
  public:
   enum Attribute {
-    // Output class template parameters on ctors and dtors
-    CDTOR_CLASS_TEMPLATE_PARAMETERS = 1,
-    // Output Microsoft legacy named names for [u]intX_t simple types
-    MS_SIMPLE_TYPES                 = 2,
-    OUTPUT_THUNKS                   = 4,
-    OUTPUT_EXTERN                   = 8
+    // class template parameters on ctors and dtors
+    CDTOR_CLASS_TEMPLATE_PARAMETERS = 0x01,
+    // Microsoft legacy named names for [u]intX_t simple types
+    MS_SIMPLE_TYPES                 = 0x02,
+    // [thunk]: for thunks
+    OUTPUT_THUNKS                   = 0x04,
+    // extern "C"
+    OUTPUT_EXTERN                   = 0x08,
+    // spaces after commas
+    SPACE_AFTER_COMMA               = 0x10,
+    // Include anonymous namespace numbers
+    OUTPUT_ANONYMOUS_NUMBERS        = 0x20,
+    // spaces for templates between << and >>
+    SPACE_BETWEEN_TEMPLATE_BRACKETS = 0x40,
   };
 
   class Attributes {
@@ -46,6 +54,7 @@ class TextOutput {
     attr.set(OUTPUT_THUNKS);
     attr.set(CDTOR_CLASS_TEMPLATE_PARAMETERS);
     attr.set(MS_SIMPLE_TYPES);
+    attr.set(SPACE_BETWEEN_TEMPLATE_BRACKETS);
     return attr;
   };
 
