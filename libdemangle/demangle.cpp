@@ -1922,6 +1922,8 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
   }
 
   progress("end of template parameters");
+  if (debug) std::cout << "Templated symbol was: " << str(templated_type) << std::endl;
+
   // Advance past the '@' that marked the end of the template parameters.
   advance_to_next_char();
 
@@ -2003,6 +2005,8 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
   }
 
   progress("end of fully qualified name");
+  if (debug) std::cout << "Qualified name was: " << str(t) << std::endl;
+
   // Advance past the terminating '@' character.
   advance_to_next_char();
   return t;
