@@ -958,7 +958,7 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   get_storage_class(t->inner_type);
 
   if (t->inner_type->is_member && !t->inner_type->is_based) {
-    get_fully_qualified_name(t->inner_type, push);
+    get_fully_qualified_name(t->inner_type, true);
   }
 
   // Hack (like undname).
