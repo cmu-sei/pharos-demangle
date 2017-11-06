@@ -18,6 +18,20 @@
 namespace demangle {
 namespace detail {
 
+class VisualStudioDemangler;
+
+// Wrapper object that saves a reference stack, replacing it with an empty one.  The reference
+// stack will be re-replaced when the save_stack object exists scope.
+struct save_stack {
+  save_stack(ReferenceStack & stack, VisualStudioDemangler & dm, char const * n);
+  ~save_stack();
+
+  VisualStudioDemangler & demangler;
+  ReferenceStack saved;
+  ReferenceStack & original;
+  char const * name;
+};
+
 std::string str(DemangledTypePtr const & p)
 {
   if (p) {
@@ -40,6 +54,8 @@ class Namespace : public DemangledType {
 class VisualStudioDemangler
 {
  private:
+  friend class save_stack;
+
   const std::string & mangled;
   bool debug;
   size_t offset;
@@ -98,7 +114,10 @@ class VisualStudioDemangler
 
   // Some helper functions to make debugging a little prettier.
   void progress(const std::string & msg);
-  void stack_debug(ReferenceStack & stack, size_t position, const std::string & msg);
+  void print_stack(ReferenceStack const & stack, const std::string & msg);
+  void stack_debug(ReferenceStack const & stack, size_t position, const std::string & msg);
+  save_stack push_names();
+  save_stack push_types();
 
  public:
 
@@ -106,6 +125,34 @@ class VisualStudioDemangler
 
   DemangledTypePtr analyze();
 };
+
+save_stack::save_stack(ReferenceStack & stack, VisualStudioDemangler & dm, char const * n)
+  : demangler(dm), original(stack), name(n)
+{
+  swap(saved, original);
+  if (demangler.debug) {
+    std::cout << "Pushing " << name << " stack and resetting to empty" << std::endl;
+  }
+}
+
+inline save_stack::~save_stack()
+{
+  swap(saved, original);
+  if (demangler.debug) {
+    std::cout << "Popping " << name << " stack" << std::endl;
+    demangler.print_stack(original, name);
+  }
+}
+
+inline save_stack VisualStudioDemangler::push_names()
+{
+  return save_stack(name_stack, *this, "name");
+}
+
+inline save_stack VisualStudioDemangler::push_types()
+{
+  return save_stack(type_stack, *this, "type");
+}
 
 } // namespace detail
 
@@ -752,8 +799,19 @@ void VisualStudioDemangler::progress(const std::string & msg)
   }
 }
 
+void VisualStudioDemangler::print_stack(
+  ReferenceStack const & stack, const std::string & msg)
+{
+  std::cout << "The full " << msg << " stack currently contains:" << std::endl;
+  size_t p = 0;
+  for (auto & t : stack) {
+    std::cout << "  " << p << " : " << str(t) << std::endl;
+    p++;
+  }
+}
+
 void VisualStudioDemangler::stack_debug(
-  ReferenceStack & stack, size_t position, const std::string & msg)
+  ReferenceStack const & stack, size_t position, const std::string & msg)
 {
   std::string address = boost::str(boost::format("%p") % &stack);
   std::string entry;
@@ -769,15 +827,7 @@ void VisualStudioDemangler::stack_debug(
 
   std::cout << "Pushing " << msg << " position " << position << " in stack at address "
             << address << " refers to " << entry << std::endl;
-
-  if (true) {
-    std::cout << "The full " << msg << " stack currently contains:" << std::endl;
-    size_t p = 0;
-    for (auto & t : stack) {
-      std::cout << "  " << p << " : " << str(t) << std::endl;
-      p++;
-    }
-  }
+  print_stack(stack, msg);
 }
 
 DemangledTypePtr & VisualStudioDemangler::process_calling_convention(DemangledTypePtr & t)
@@ -1773,24 +1823,6 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_function_arg(DemangledTy
   return t;
 }
 
-namespace {
-// Wrapper object that saves a reference stack, replacing it with an empty one.  The reference
-// stack will be re-replaced when the save_stack object exists scope.
-struct save_stack {
-  save_stack(ReferenceStack & stack) : original(stack) {
-    swap(saved, original);
-  }
-
-  ~save_stack() {
-    swap(saved, original);
-  }
-
-  ReferenceStack saved;
-  ReferenceStack & original;
-};
-} // unnamed namespace
-
-
 DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & templated_type)
 {
   // The current character was the '$' when this method was called.
@@ -1798,7 +1830,7 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
   progress("templated symbol");
 
   // Whenever we start a new template, we start a new name stack.
-  auto saved_name_stack = save_stack(name_stack);
+  auto saved_name_stack = push_names();
 
   // The name can be either a special name or a literal, but not a fully qualified name
   // because there's no '@' after the special name code.
@@ -1807,6 +1839,7 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
     if (c == '$') {
       get_templated_type(templated_type);
       name_stack.push_back(templated_type);
+      stack_debug(name_stack, name_stack.size()-1, "name");
     }
     else {
       get_special_name_code(templated_type);
@@ -1815,10 +1848,11 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
   else {
     templated_type->simple_string = get_literal();
     name_stack.emplace_back(std::make_shared<Namespace>(templated_type->simple_string));
+    stack_debug(name_stack, name_stack.size()-1, "name");
   }
 
   // We also need a new type stack for the template parameters.
-  auto saved_type_stack = save_stack(type_stack);
+  auto saved_type_stack = push_types();
 
   size_t params = 0;
   c = get_current_char();
@@ -1940,6 +1974,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
             auto ns = get_anonymous_namespace();
             t->name.push_back(ns);
             name_stack.push_back(std::move(ns));
+            stack_debug(name_stack, name_stack.size()-1, "name");
           }
           else {
             uint64_t number = get_number();
@@ -2137,7 +2172,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
 
 
   // Whenever we start a nex set of function arguments, we start a new type stack?
-  //auto saved_type_stack = save_stack(type_stack);
+  //auto saved_type_stack = push_types();
 
   // Function arguments.
   size_t argno = 0;
