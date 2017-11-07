@@ -73,6 +73,7 @@ class Converter {
 
   ConvStream stream;
   DemangledType const & t;
+  bool do_cconv = true;
 
   enum spaceloc_t { BEFORE, AFTER };
 
@@ -362,7 +363,12 @@ void Converter::do_pointer(
     if (name) name();
     if (parens) stream << ')';
   };
-  do_type(*type.inner_type, iname);
+  if (type.inner_type->is_func) {
+    auto save = tset(do_cconv, false);
+    do_type(*type.inner_type, iname);
+  } else {
+    do_type(*type.inner_type, iname);
+  }
 }
 
 void Converter::do_type(
@@ -385,7 +391,7 @@ void Converter::do_type(
     return;
   }
   if (type.is_func) {
-    do_function(type, pname);
+    do_function(type.inner_type ? *type.inner_type : type, pname);
     return;
   }
   do_name(type);
@@ -399,10 +405,11 @@ void Converter::do_function(
   DemangledType const & fn,
   std::function<void()> name)
 {
-  auto fname = [this, &fn, name]() {
+  auto cconv = do_cconv;
+  auto fname = [this, &fn, name, cconv]() {
     {
       stream << ' ';
-      if (fn.symbol_type != SymbolType::Unspecified) {
+      if (fn.symbol_type != SymbolType::Unspecified || cconv) {
         stream << fn.calling_convention << ' ';
       }
       if (name) name();
@@ -416,6 +423,7 @@ void Converter::do_function(
     rv.reset(new DemangledType("void"));
   }
   auto save = tset(retval_, rv.get());
+  auto save2 = tset(do_cconv, true);
   do_type(*retval_, fname);
 }
 
