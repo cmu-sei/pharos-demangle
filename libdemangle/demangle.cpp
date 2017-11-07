@@ -119,6 +119,22 @@ class VisualStudioDemangler
   save_stack push_names();
   save_stack push_types();
 
+  template <typename T>
+  void stack_saver(ReferenceStack & stack, char const * stack_name, T&& name) {
+    if (stack.size() < 10) {
+      stack.push_back(std::forward<T>(name));
+      stack_debug(stack, stack.size()-1, stack_name);
+    }
+  }
+
+  template <typename T>
+  void save_name(T&& name) {
+    stack_saver(name_stack, "name", std::forward<T>(name));
+  }
+  template <typename T>
+  void save_type(T&& type) {
+    stack_saver(type_stack, "type", std::forward<T>(type));
+  }
  public:
 
   VisualStudioDemangler(const std::string & mangled, bool debug = false);
@@ -958,7 +974,7 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   get_storage_class(t->inner_type);
 
   if (t->inner_type->is_member && !t->inner_type->is_based) {
-    get_fully_qualified_name(t->inner_type, true);
+    get_fully_qualified_name(t->inner_type);
   }
 
   // Hack (like undname).
@@ -975,10 +991,7 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   }
 
   // Add the type to the type stack.
-  if (push) {
-    type_stack.push_back(t);
-    stack_debug(type_stack, type_stack.size()-1, "type");
-  }
+  if (push) save_name(t);
 
   if (handling_cli_array) {
     auto at = std::make_shared<DemangledType>();
@@ -1069,35 +1082,23 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
    case 'T':
     update_simple_type(t, Code::UNION);
     get_fully_qualified_name(t);
-    if (push) {
-      type_stack.push_back(t);
-      stack_debug(type_stack, type_stack.size()-1, "type");
-    }
+    if (push) save_type(t);
     return t;
    case 'U':
     update_simple_type(t, Code::STRUCT);
     get_fully_qualified_name(t);
-    if (push) {
-      type_stack.push_back(t);
-      stack_debug(type_stack, type_stack.size()-1, "type");
-    }
+    if (push) save_type(t);
     return t;
    case 'V':
     update_simple_type(t, Code::CLASS);
     get_fully_qualified_name(t);
-    if (push) {
-      type_stack.push_back(t);
-      stack_debug(type_stack, type_stack.size()-1, "type");
-    }
+    if (push) save_type(t);
     return t;
    case 'W':
     update_simple_type(t, Code::ENUM);
     get_real_enum_type(t);
     get_fully_qualified_name(t);
-    if (push) {
-      type_stack.push_back(t);
-      stack_debug(type_stack, type_stack.size()-1, "type");
-    }
+    if (push) save_type(t);
     return t;
    case 'X': return update_simple_type(t, Code::VOID);
    case 'Y': // array
@@ -1134,10 +1135,7 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
       bad_code(c, "extended '_' type");
     }
     // Apparently _X is a two character type, and two character types get pushed onto the stack.
-    if (push) {
-      type_stack.push_back(t);
-      stack_debug(type_stack, type_stack.size()-1, "type");
-    }
+    if (push) save_type(t);
     return t;
    case '?': // Documented at wikiversity as "type modifier, template parameter"
     advance_to_next_char();
@@ -1838,8 +1836,7 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
     c = get_next_char();
     if (c == '$') {
       get_templated_type(templated_type);
-      name_stack.push_back(templated_type);
-      stack_debug(name_stack, name_stack.size()-1, "name");
+      save_name(templated_type);
     }
     else {
       get_special_name_code(templated_type);
@@ -1847,8 +1844,7 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
   }
   else {
     templated_type->simple_string = get_literal();
-    name_stack.emplace_back(std::make_shared<Namespace>(templated_type->simple_string));
-    stack_debug(name_stack, name_stack.size()-1, "name");
+    save_name(std::make_shared<Namespace>(templated_type->simple_string));
   }
 
   // We also need a new type stack for the template parameters.
@@ -1949,10 +1945,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
         auto tt = std::make_shared<DemangledType>();
         get_templated_type(tt);
         t->name.push_back(tt);
-        if (pushing) {
-          name_stack.push_back(std::move(tt));
-          stack_debug(name_stack, name_stack.size()-1, "name");
-        }
+        if (pushing) save_name(std::move(tt));
       }
       else {
         // This feels wrong...  If it's the first term in the name it's a special name, but if
@@ -1975,8 +1968,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
           if (get_current_char() == 'A') {
             auto ns = get_anonymous_namespace();
             t->name.push_back(ns);
-            name_stack.push_back(std::move(ns));
-            stack_debug(name_stack, name_stack.size()-1, "name");
+            save_name(std::move(ns));
           }
           else {
             uint64_t number = get_number();
@@ -1997,8 +1989,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
     else {
       auto ns = std::make_shared<Namespace>(get_literal());
       t->name.push_back(ns);
-      name_stack.push_back(std::move(ns));
-      stack_debug(name_stack, name_stack.size()-1, "name");
+      save_name(std::move(ns));
     }
     c = get_current_char();
     argno++;
