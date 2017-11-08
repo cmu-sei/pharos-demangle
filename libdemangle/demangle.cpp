@@ -75,11 +75,11 @@ class VisualStudioDemangler
   // Given a stack and a position character, safely resolve and return the reference.
   DemangledTypePtr resolve_reference(ReferenceStack & stack, char poschar);
 
-  DemangledTypePtr get_type(DemangledTypePtr t = DemangledTypePtr(), bool push = true);
-  DemangledTypePtr get_array_type(DemangledTypePtr & t, bool push = true);
-  DemangledTypePtr & get_pointer_type(DemangledTypePtr & t, bool push = true);
+  DemangledTypePtr get_type(DemangledTypePtr t, bool push = false);
+  DemangledTypePtr get_type(bool push = false) { return get_type(nullptr, push); }
+  DemangledTypePtr get_array_type(DemangledTypePtr & t);
+  DemangledTypePtr & get_pointer_type(DemangledTypePtr & t);
   DemangledTypePtr & get_templated_type(DemangledTypePtr & t);
-  DemangledTypePtr & get_templated_function_arg(DemangledTypePtr & t);
   DemangledTypePtr & get_return_type(DemangledTypePtr & t);
   DemangledTypePtr & get_fully_qualified_name(DemangledTypePtr & t, bool push = true);
   DemangledTypePtr & get_symbol_type(DemangledTypePtr & t);
@@ -961,7 +961,7 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
 
 // Pointer base codes.  Agner Fog's Table 13.
 DemangledTypePtr &
-VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
+VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t)
 {
   advance_to_next_char();
   get_storage_class_modifiers(t);
@@ -984,14 +984,11 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   }
   else {
     progress("type pointed to");
-    t->inner_type = get_type(t->inner_type, false);
+    t->inner_type = get_type(t->inner_type);
   }
   if (debug) {
     std::cout << "Inner type was: " << str(t->inner_type) << std::endl;
   }
-
-  // Add the type to the type stack.
-  if (push) save_type(t);
 
   if (handling_cli_array) {
     auto at = std::make_shared<DemangledType>();
@@ -1030,13 +1027,13 @@ DemangledTypePtr & VisualStudioDemangler::get_real_enum_type(DemangledTypePtr & 
   return t;
 }
 
-DemangledTypePtr VisualStudioDemangler::get_array_type(DemangledTypePtr & t, bool push) {
+DemangledTypePtr VisualStudioDemangler::get_array_type(DemangledTypePtr & t) {
   t->is_array = true;
   auto num_dim = get_number();
   for (decltype(num_dim) i = 0; i < num_dim; ++i) {
     t->dimensions.push_back(uint64_t(get_number()));
   }
-  return get_type(t, push);
+  return get_type(t);
 }
 
 // Return a demangled type, for a global variables, a return code, or a function argument.
@@ -1053,12 +1050,9 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
   progress("type");
   switch(c) {
    case 'A': // X&
-    t->is_reference = true;
-    return get_pointer_type(t, push);
+    t->is_reference = true; get_pointer_type(t); break;
    case 'B': // X& volatile
-    t->is_reference = true;
-    t->is_volatile = true;
-    return get_pointer_type(t, push);
+    t->is_reference = true; t->is_volatile = true; get_pointer_type(t); break;
    case 'C': return update_simple_type(t, Code::SIGNED_CHAR);
    case 'D': return update_simple_type(t, Code::CHAR);
    case 'E': return update_simple_type(t, Code::UNSIGNED_CHAR);
@@ -1072,38 +1066,36 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
    case 'N': return update_simple_type(t, Code::DOUBLE);
    case 'O': return update_simple_type(t, Code::LONG_DOUBLE);
    case 'P': // X*
-    t->is_pointer = true; return get_pointer_type(t, push);
+    t->is_pointer = true; get_pointer_type(t); break;
    case 'Q': // X* const
-    t->is_pointer = true; t->is_const = true; return get_pointer_type(t, push);
+    t->is_pointer = true; t->is_const = true; get_pointer_type(t); break;
    case 'R': // X* volatile
-    t->is_pointer = true; t->is_volatile = true; return get_pointer_type(t, push);
+    t->is_pointer = true; t->is_volatile = true; return get_pointer_type(t); break;
    case 'S': // X* const volatile
-    t->is_pointer = true; t->is_const = true; t->is_volatile = true; return get_pointer_type(t);
+    t->is_pointer = true; t->is_const = true; t->is_volatile = true; get_pointer_type(t);
+    break;
    case 'T':
     update_simple_type(t, Code::UNION);
     get_fully_qualified_name(t);
-    if (push) save_type(t);
-    return t;
+    break;
    case 'U':
     update_simple_type(t, Code::STRUCT);
     get_fully_qualified_name(t);
-    if (push) save_type(t);
-    return t;
+    break;
    case 'V':
     update_simple_type(t, Code::CLASS);
     get_fully_qualified_name(t);
-    if (push) save_type(t);
-    return t;
+    break;
    case 'W':
     update_simple_type(t, Code::ENUM);
     get_real_enum_type(t);
     get_fully_qualified_name(t);
-    if (push) save_type(t);
-    return t;
+    break;
    case 'X': return update_simple_type(t, Code::VOID);
    case 'Y': // array
     advance_to_next_char();
-    return get_array_type(t, push);
+    get_array_type(t);
+    break;
    case 'Z': return update_simple_type(t, Code::ELLIPSIS);
    case '0': case '1': case '2': case '3': case '4':
    case '5': case '6': case '7': case '8': case '9':
@@ -1134,13 +1126,12 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
      default:
       bad_code(c, "extended '_' type");
     }
-    // Apparently _X is a two character type, and two character types get pushed onto the stack.
-    if (push) save_type(t);
-    return t;
+    break;
    case '?': // Documented at wikiversity as "type modifier, template parameter"
     advance_to_next_char();
     get_storage_class(t);
-    return get_type(t, push);
+    get_type(t);
+    break;
    case '$':
     c = get_next_char();
     // A second '$' (two in a row)...
@@ -1148,29 +1139,21 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
       c = get_next_char();
       switch (c) {
        case 'Q':
-        t->is_refref = true;
-        return get_pointer_type(t, push);
+        t->is_refref = true; get_pointer_type(t); break;
        case 'R':
-        // Untested against undname
-        t->is_volatile = true;
-        t->is_refref = true;
-        return get_pointer_type(t, push);
+        t->is_volatile = true; t->is_refref = true; get_pointer_type(t); break;
        case 'A':
-        t->is_func = true;
-        return get_pointer_type(t, push);
+        t->is_func = true; get_pointer_type(t); break;
        case 'B':
         // Seems to be array type in template.  Next char should be 'Y'
-        advance_to_next_char();
-        return get_type(t, push);
+        advance_to_next_char(); get_type(t); break;
        case 'C':
-        advance_to_next_char();
-        get_storage_class(t);
-        return get_type(t, push);
+        advance_to_next_char(); get_storage_class(t); get_type(t); break;
        case 'T':
         advance_to_next_char();
         t->name.push_back(std::make_shared<Namespace>("nullptr_t"));
         t->name.push_back(std::make_shared<Namespace>("std"));
-        return t;
+        break;
        case 'V':
        case 'Z':
         // end of parameter pack.  Return null
@@ -1182,11 +1165,14 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
     }
     // All characters after a single '$' are template parameters.
     else {
-      return get_templated_function_arg(t);
+      bad_code(c, "type");
     }
+    break;
    default:
     bad_code(c, "type");
   }
+  if (push) save_type(t);
+  return t;
 }
 
 // This should return a compiler independent enum.  We don't know the class name yet, which
@@ -1546,7 +1532,7 @@ DemangledTypePtr & VisualStudioDemangler::get_return_type(DemangledTypePtr & t) 
   progress("return value storage class");
   process_return_storage_class(t);
   progress("return value type");
-  get_type(t, false);
+  get_type(t);
   return t;
 }
 
@@ -1797,28 +1783,6 @@ DemangledTypePtr VisualStudioDemangler::resolve_reference(
 
   // Even if our position was invalid kludge something up for debugging.
   return std::make_shared<Namespace>(boost::str(boost::format("ref#%d") % stack_offset));
-}
-
-DemangledTypePtr & VisualStudioDemangler::get_templated_function_arg(DemangledTypePtr & t)
-{
-  // This routines handles '$' in function args.  It's unclear why they need special treatment.
-  // When this method was called, the current character was the '$', so we need to advance to
-  // the next character first thing.
-  char c = get_next_char();
-  progress("templated function argument");
-  switch(c) {
-   case '0':
-   case 'D':
-   case 'F':
-   case 'G':
-   case 'Q':
-   default:
-    bad_code(c, "templated function arg");
-  }
-
-  // Hack thing to consume 0, D, F, G, & Q.
-  advance_to_next_char();
-  return t;
 }
 
 DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & templated_type)
@@ -2180,7 +2144,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
       break;
     }
     progress("function argument");
-    auto arg = get_type();
+    auto arg = get_type(true);
     t->args.push_back(arg);
     if (debug) std::cout << "Arg #" << argno << " was: " << str(arg) << std::endl;
     // If the first parameter is void, it's the only parameter.
