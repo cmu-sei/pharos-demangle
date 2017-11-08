@@ -75,7 +75,7 @@ class Converter {
   DemangledType const & t;
   bool do_cconv = true;
 
-  enum spaceloc_t { BEFORE, AFTER };
+  enum cv_context_t { TYPE, FUNCTION };
 
  public:
   Converter(TextOutput::Attributes const & a, std::ostream & s, DemangledType const & dt)
@@ -97,7 +97,7 @@ class Converter {
   void do_pointer(DemangledType const & ptr, std::function<void()> name = nullptr);
   void do_pointer_type(DemangledType const & ptr);
   void do_function(DemangledType const & fn, std::function<void()> name = nullptr);
-  void do_cv(DemangledType const & type, spaceloc_t sl);
+  void do_cv(DemangledType const & type, cv_context_t ctx);
   void do_refspec(DemangledType const & fn);
   void do_method_properties(DemangledType const & m);
 
@@ -359,7 +359,7 @@ void Converter::do_pointer(
         stream << "::";
     }
     do_pointer_type(type);
-    do_cv(type, AFTER);
+    do_cv(type, TYPE);
     if (name) name();
     if (parens) stream << ')';
   };
@@ -395,7 +395,7 @@ void Converter::do_type(
     return;
   }
   do_name(type);
-  do_cv(type, BEFORE);
+  do_cv(type, TYPE);
   if (pname) {
     pname();
   }
@@ -414,7 +414,7 @@ void Converter::do_function(
       }
       if (name) name();
       do_args(fn.args);
-      do_cv(fn, AFTER);
+      do_cv(fn, FUNCTION);
       do_refspec(fn);
     }
   };
@@ -428,13 +428,14 @@ void Converter::do_function(
 }
 
 void Converter::do_cv(
-  DemangledType const & type, spaceloc_t sl)
+  DemangledType const & type, cv_context_t ctx)
 {
-  char const * a = (sl == BEFORE) ? " " : "";
-  char const * b = (sl == AFTER) ? " " : "";
+  char const * a = (ctx == FUNCTION) ? " " : "";
+  char const * b = (ctx == TYPE) ? " " : "";
+  if (type.ptr64 && ctx == TYPE) stream << a << "__ptr64" << b;
   if (type.is_const) stream << a << "const" << b;
   if (type.is_volatile) stream << a << "volatile" << b;
-  if (type.ptr64) stream << " __ptr64";
+  if (type.ptr64 && ctx == FUNCTION) stream << a << "__ptr64" << b;
 }
 
 void Converter::do_refspec(
