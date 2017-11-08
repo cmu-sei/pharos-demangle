@@ -282,7 +282,7 @@ void Converter::do_template_param(
   } else if (p.pointer) {
     if (p.type->is_func && p.type->is_member) {
       stream << '{';
-      do_type(*p.type);
+      sub(*p.type)();
       if (p.constant_value >= 1) {
         stream << ',' << p.type->n1;
       }
@@ -292,7 +292,7 @@ void Converter::do_template_param(
       stream << '}';
     } else {
       stream << '&';
-      do_type(*p.type);
+      sub(*p.type)();
     }
   } else {
     do_type(*p.type);
