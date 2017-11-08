@@ -991,7 +991,7 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t, bool push)
   }
 
   // Add the type to the type stack.
-  if (push) save_name(t);
+  if (push) save_type(t);
 
   if (handling_cli_array) {
     auto at = std::make_shared<DemangledType>();
