@@ -203,6 +203,18 @@ void Converter::do_name(
                          stream.attr[TextOutput::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
         do_name(std::prev(i), i);
       }
+    } else if (frag->name.size() == 1 && frag->name.front()->simple_code == Code::OP_TYPE) {
+      // Where do we place template parameters in an operator type construct?  Microsoft does
+      // it one way, the rest of the world does it another.
+      stream << "operator";
+      if (stream.attr[TextOutput::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE]) {
+        do_template_params(frag->template_parameters);
+      }
+      stream << ' ';
+      if (retval_) do_type(*retval_);
+      if (stream.attr[TextOutput::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE]) {
+        continue;
+      }
     } else {
       // Normal case
       do_name(*frag);
@@ -424,7 +436,14 @@ void Converter::do_function(
   }
   auto save = tset(retval_, rv.get());
   auto save2 = tset(do_cconv, true);
-  do_type(*retval_, fname);
+  if (!fn.name.empty() && !fn.name.front()->name.empty()
+      && fn.name.front()->name.front()->simple_code == Code::OP_TYPE)
+  {
+    // operator <type>
+    fname();
+  } else {
+    do_type(*retval_, fname);
+  }
 }
 
 void Converter::do_cv(
