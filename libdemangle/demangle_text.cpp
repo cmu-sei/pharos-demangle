@@ -139,7 +139,7 @@ void Converter::do_method_properties(DemangledType const & m)
   if (stream.attr[TextOutput::OUTPUT_THUNKS]
       && m.method_property == MethodProperty::Thunk)
   {
-    stream << "[thunk]:";
+    stream << "[thunk]: ";
   }
   stream << m.scope;
   if (m.method_property == MethodProperty::Static) stream << "static ";
@@ -157,13 +157,21 @@ void Converter::operator()()
    case SymbolType::GlobalObject:
     do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
     break;
+   case SymbolType::MethodThunk:
+    do_method_properties(t);
+    stream << t.calling_convention << ' ';
+    do_name(t);
+    stream << '{' << t.n1 << ",{flat}}'";
+    if (stream.attr[TextOutput::MS_BROKEN_METHODTHUNK]) {
+      stream << " }'";
+    }
+    break;
    case SymbolType::Unspecified:
    case SymbolType::GlobalThing1:
    case SymbolType::GlobalThing2:
    case SymbolType::String:
    case SymbolType::VtorDisp:
    case SymbolType::StaticGuard:
-   case SymbolType::MethodThunk:
    case SymbolType::HexSymbol:
     break;
   }
@@ -449,12 +457,22 @@ void Converter::do_function(
 void Converter::do_cv(
   DemangledType const & type, cv_context_t ctx)
 {
-  char const * a = (ctx == FUNCTION) ? " " : "";
-  char const * b = (ctx == TYPE) ? " " : "";
-  if (type.ptr64 && ctx == TYPE) stream << a << "__ptr64" << b;
-  if (type.is_const) stream << a << "const" << b;
-  if (type.is_volatile) stream << a << "volatile" << b;
-  if (type.ptr64 && ctx == FUNCTION) stream << a << "__ptr64" << b;
+  bool is_retval = retval_ == &type;
+  bool discard = stream.attr[TextOutput::DISCARD_CV_ON_RETURN_POINTER]
+                 && type.is_pointer && is_retval;
+  char const * a = (ctx == TYPE) ? " " : "";
+  char const * b = (ctx == FUNCTION) ? " " : "";
+
+  auto cv = [this, &type, a, b]() {
+    if (type.is_const) stream << a << "const" << b;
+    if (type.is_volatile) stream << a << "volatile" << b;
+  };
+
+  if (!discard && ctx == FUNCTION) cv();
+  if (type.unaligned) stream << a << "__unaligned" << b;
+  if (type.ptr64) stream << a << "__ptr64" << b;
+  if (type.restrict) stream << a << "__restrict" << b;
+  if (!discard && ctx == TYPE) cv();
 }
 
 void Converter::do_refspec(

@@ -26,8 +26,12 @@ class TextOutput {
     // spaces for templates between << and >>
     SPACE_BETWEEN_TEMPLATE_BRACKETS              = 0x40,
     // template parameters come before (instead of after) the type in user-defined conversion
-    // oeprators
+    // operators
     USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE = 0x80,
+    // undname outputs an extra " }'"
+    MS_BROKEN_METHODTHUNK                        = 0x100,
+    // undname discards cv on pointer return values
+    DISCARD_CV_ON_RETURN_POINTER                 = 0x200,
   };
 
   class Attributes {
@@ -59,6 +63,8 @@ class TextOutput {
     attr.set(MS_SIMPLE_TYPES);
     attr.set(SPACE_BETWEEN_TEMPLATE_BRACKETS);
     attr.set(USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE);
+    attr.set(MS_BROKEN_METHODTHUNK);
+    attr.set(DISCARD_CV_ON_RETURN_POINTER);
     return attr;
   };
 
