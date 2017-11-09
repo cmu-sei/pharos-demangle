@@ -292,7 +292,7 @@ void Converter::do_template_param(
   if (!p.type) {
     stream << p.constant_value;
   } else if (p.pointer) {
-    if (p.type->is_func && p.type->is_member) {
+    if (p.type->is_func && p.type->is_member && p.constant_value > 0) {
       stream << '{';
       sub(*p.type)();
       if (p.constant_value >= 1) {
