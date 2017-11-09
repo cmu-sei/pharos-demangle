@@ -365,10 +365,10 @@ void Converter::do_pointer(
     if (inner.is_func) {
       stream << inner.calling_convention << ' ';
     }
-    if (inner.is_member) {
-        // Method pointer
-        do_name(inner);
-        stream << "::";
+    if (inner.is_member && !type.name.empty()) {
+      // Method or member pointer
+      do_name(type);
+      stream << "::";
     }
     do_pointer_type(type);
     do_cv(type, TYPE);

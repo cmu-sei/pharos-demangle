@@ -668,7 +668,7 @@ StringOutput::str(bool is_retval) const
       }
 
       if (t->inner_type->is_member) {
-        stream << str_name_qualifiers(t->inner_type->name) << "::";
+        stream << str_name_qualifiers(t->name) << "::";
       }
     }
   } else if (t->is_func && t->inner_type) {
@@ -974,7 +974,7 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t)
   get_storage_class(t->inner_type);
 
   if (t->inner_type->is_member && !t->inner_type->is_based) {
-    get_fully_qualified_name(t->inner_type);
+    get_fully_qualified_name(t);
   }
 
   // Hack (like undname).
