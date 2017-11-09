@@ -406,12 +406,12 @@ void Converter::do_type(
     };
     pname = aname;
   }
-  if (type.is_pointer || type.is_reference || type.is_refref) {
-    do_pointer(type, pname);
-    return;
-  }
   if (type.is_func) {
     do_function(type.inner_type ? *type.inner_type : type, pname);
+    return;
+  }
+  if (type.is_pointer || type.is_reference || type.is_refref) {
+    do_pointer(type, pname);
     return;
   }
   do_name(type);
