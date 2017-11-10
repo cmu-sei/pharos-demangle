@@ -218,9 +218,9 @@ class DemangledType {
 
   void debug_type(bool match = false, size_t indent = 0, std::string label = "") const;
 
-  template <typename T>
-  DemangledTypePtr & add_name(T && n) {
-    name.push_back(std::make_shared<DemangledType>(std::forward<T>(n)));
+  template <typename... T>
+  DemangledTypePtr & add_name(T &&... n) {
+    name.push_back(std::make_shared<DemangledType>(std::forward<T>(n)...));
     return name.back();
   }
 };

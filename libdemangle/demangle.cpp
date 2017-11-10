@@ -79,7 +79,7 @@ class VisualStudioDemangler
   DemangledTypePtr get_type(bool push = false) { return get_type(nullptr, push); }
   DemangledTypePtr get_array_type(DemangledTypePtr & t);
   DemangledTypePtr & get_pointer_type(DemangledTypePtr & t);
-  DemangledTypePtr & get_templated_type(DemangledTypePtr & t);
+  DemangledTypePtr add_templated_type(DemangledTypePtr & t);
   DemangledTypePtr & get_return_type(DemangledTypePtr & t);
   DemangledTypePtr & get_fully_qualified_name(DemangledTypePtr & t, bool push = true);
   DemangledTypePtr & get_symbol_type(DemangledTypePtr & t);
@@ -92,7 +92,7 @@ class VisualStudioDemangler
   DemangledTypePtr & process_return_storage_class(DemangledTypePtr & t);
   DemangledTypePtr & process_calling_convention(DemangledTypePtr & t);
   DemangledTypePtr & process_method_storage_class(DemangledTypePtr & t);
-  DemangledTypePtr & get_special_name_code(DemangledTypePtr & t);
+  DemangledTypePtr & add_special_name_code(DemangledTypePtr & t);
   DemangledTypePtr & get_string(DemangledTypePtr & t);
   DemangledTypePtr get_anonymous_namespace();
 
@@ -119,21 +119,21 @@ class VisualStudioDemangler
   save_stack push_names();
   save_stack push_types();
 
-  template <typename T>
-  void stack_saver(ReferenceStack & stack, char const * stack_name, T&& name) {
+  void stack_saver(ReferenceStack & stack, char const * stack_name,
+                   DemangledTypePtr const & name)
+  {
     if (stack.size() < 10) {
-      stack.push_back(std::forward<T>(name));
+      stack.push_back(std::make_shared<DemangledType>(*name));
       stack_debug(stack, stack.size()-1, stack_name);
     }
   }
 
-  template <typename T>
-  void save_name(T&& name) {
-    stack_saver(name_stack, "name", std::forward<T>(name));
+  void save_name(DemangledTypePtr const & name) {
+    stack_saver(name_stack, "name", name);
   }
-  template <typename T>
-  void save_type(T&& type) {
-    stack_saver(type_stack, "type", std::forward<T>(type));
+
+  void save_type(DemangledTypePtr const & type) {
+    stack_saver(type_stack, "type", type);
   }
  public:
 
@@ -559,15 +559,15 @@ std::string
 StringOutput::str(bool is_retval) const
 {
   // If we're a namespace just return our simple_type name (hackish) and we're done.
-  if (t->is_namespace) {
-    if (t->is_anonymous) {
-      if (!match) return "'anonymous namespace " + t->simple_string + "'";
-      else return std::string("`anonymous namespace'");
-    }
-    else {
-      return t->simple_string;
-    }
-  }
+  // if (t->is_namespace) {
+  //   if (t->is_anonymous) {
+  //     if (!match) return "'anonymous namespace " + t->simple_string + "'";
+  //     else return std::string("`anonymous namespace'");
+  //   }
+  //   else {
+  //     return t->simple_string;
+  //   }
+  // }
 
   if (t->symbol_type == SymbolType::HexSymbol) {
     return t->simple_string;
@@ -1175,18 +1175,13 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
   return t;
 }
 
-// This should return a compiler independent enum.  We don't know the class name yet, which
-// makes turning the ctor and dtor into strings.  Besides, they're not really different (just
-// more important) than the others in this list.  Then there can be different methods for
-// turning the enum values into strings depdening on the human readable presentation that's
-// desired.
-DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr & t)
+DemangledTypePtr & VisualStudioDemangler::add_special_name_code(DemangledTypePtr & t)
 {
   char c = get_current_char();
   progress("special name");
   switch(c) {
-   case '0': t->is_ctor = true; break;
-   case '1': t->is_dtor = true; break;
+   case '0': t->add_name()->is_ctor = true; break;
+   case '1': t->add_name()->is_dtor = true; break;
    case '2': t->add_name(Code::OP_NEW); break;
    case '3': t->add_name(Code::OP_DELETE); break;
    case '4': t->add_name(Code::OP_ASSIGN); break;
@@ -1226,7 +1221,7 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
      embedded->is_embedded = true;
      if (debug) std::cout << "The fully embedded type was:" << str(embedded) << std::endl;
      t->name.push_back(std::move(embedded));
-     return t;
+     return t->name.back();
    }
    case '_':
     c = get_next_char();
@@ -1243,8 +1238,7 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
      case '9': t->add_name(Code::VCALL); break;
      case 'A': t->add_name(Code::TYPEOF); break;
      case 'B': t->add_name(Code::LOCAL_STATIC_GUARD); break;
-     case 'C': get_string(t);
-      return t;
+     case 'C': return get_string(t->add_name());
      case 'D': t->add_name(Code::VBASE_DTOR); break;
      case 'E': t->add_name(Code::VECTOR_DELETING_DTOR); break;
      case 'F': t->add_name(Code::DEFAULT_CTOR_CLOSURE); break;
@@ -1258,7 +1252,7 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
      case 'N': t->add_name(Code::EH_VECTOR_VBASE_CTOR_ITER); break;
      case 'O': t->add_name(Code::COPY_CTOR_CLOSURE); break;
      case 'P': t->add_name(Code::UDT_RETURNING); break;
-     case 'R': return get_rtti(t);
+     case 'R': return get_rtti(t->add_name());
      case 'S': t->add_name(Code::LOCAL_VFTABLE); break;
      case 'T': t->add_name(Code::LOCAL_VFTABLE_CTOR_CLOSURE); break;
      case 'U': t->add_name(Code::OP_NEW_ARRAY); break;
@@ -1288,16 +1282,20 @@ DemangledTypePtr & VisualStudioDemangler::get_special_name_code(DemangledTypePtr
     }
     break;
    case '@':
-    t->symbol_type = SymbolType::HexSymbol;
-    advance_to_next_char();
-    t->simple_string = get_literal();
-    return t;
+    {
+      auto name = t->add_name();
+      name->symbol_type = SymbolType::HexSymbol;
+      advance_to_next_char();
+      name->simple_string = get_literal();
+      return t->name.back();
+    }
+    break;
    default:
     bad_code(c, "special name");
   }
 
   advance_to_next_char();
-  return t;
+  return t->name.back();
 }
 
 DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
@@ -1785,7 +1783,7 @@ DemangledTypePtr VisualStudioDemangler::resolve_reference(
   return std::make_shared<Namespace>(boost::str(boost::format("ref#%d") % stack_offset));
 }
 
-DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & templated_type)
+DemangledTypePtr VisualStudioDemangler::add_templated_type(DemangledTypePtr & type)
 {
   // The current character was the '$' when this method was called.
   char c = get_next_char();
@@ -1794,21 +1792,24 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
   // Whenever we start a new template, we start a new name stack.
   auto saved_name_stack = push_names();
 
+  DemangledTypePtr templated_type;
+
   // The name can be either a special name or a literal, but not a fully qualified name
   // because there's no '@' after the special name code.
   if (c == '?') {
     c = get_next_char();
     if (c == '$') {
-      get_templated_type(templated_type);
+      templated_type = add_templated_type(type->add_name());
       save_name(templated_type);
     }
     else {
-      get_special_name_code(templated_type);
+      templated_type = add_special_name_code(type);
     }
   }
   else {
-    templated_type->simple_string = get_literal();
-    save_name(std::make_shared<Namespace>(templated_type->simple_string));
+    templated_type = type->add_name(get_literal());
+    templated_type->is_namespace = true;
+    save_name(templated_type);
   }
 
   // We also need a new type stack for the template parameters.
@@ -1863,8 +1864,8 @@ DemangledTypePtr & VisualStudioDemangler::get_templated_type(DemangledTypePtr & 
             bad_code(c, "template argument");
           }
           offset = pos - 2;
-          if (auto type = get_type()) {
-            parameter = std::make_shared<DemangledTemplateParameter>(std::move(type));
+          if (auto t = get_type()) {
+            parameter = std::make_shared<DemangledTemplateParameter>(std::move(t));
           }
         }
         break;
@@ -1906,10 +1907,8 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
     if (c == '?') {
       c = get_next_char();
       if (c == '$') {
-        auto tt = std::make_shared<DemangledType>();
-        get_templated_type(tt);
-        t->name.push_back(tt);
-        if (pushing) save_name(std::move(tt));
+        auto tt = add_templated_type(t);
+        if (pushing) save_name(tt);
       }
       else {
         // This feels wrong...  If it's the first term in the name it's a special name, but if
@@ -1917,12 +1916,11 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
         // that the parsing of the first term is definitely a different routine than the
         // namespace terms in a fully qualified name...   Perhaps some code cleanup is needed?
         if (first || get_current_char() == '?') {
-          auto tt = std::make_shared<DemangledType>();
-          tt = get_special_name_code(tt);
-          if (tt->symbol_type != t->symbol_type) {
+          auto tt = add_special_name_code(t);
+          if (tt->symbol_type != t->symbol_type && !tt->is_embedded) {
+            // Used for constant String symbols
             return t = std::move(tt);
           }
-          t->name.push_back(std::move(tt));
         }
         else {
           // Wow is this ugly.  But it looks like Microsoft really did it this way, so what
@@ -1932,7 +1930,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
           if (get_current_char() == 'A') {
             auto ns = get_anonymous_namespace();
             t->name.push_back(ns);
-            save_name(std::move(ns));
+            save_name(ns);
           }
           else {
             uint64_t number = get_number();
@@ -1953,7 +1951,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
     else {
       auto ns = std::make_shared<Namespace>(get_literal());
       t->name.push_back(ns);
-      save_name(std::move(ns));
+      save_name(ns);
     }
     c = get_current_char();
     argno++;

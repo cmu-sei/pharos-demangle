@@ -235,7 +235,7 @@ void Converter::do_name(
                          stream.attr[TextOutput::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
         do_name(std::prev(i), i);
       }
-    } else if (frag->name.size() == 1 && frag->name.front()->simple_code == Code::OP_TYPE) {
+    } else if (frag->simple_code == Code::OP_TYPE) {
       // Where do we place template parameters in an operator type construct?  Microsoft does
       // it one way, the rest of the world does it another.
       stream << "operator";
@@ -473,9 +473,7 @@ void Converter::do_function(
   }
   auto save = tset(retval_, rv.get());
   auto save2 = tset(do_cconv, true);
-  if (!fn.name.empty() && !fn.name.front()->name.empty()
-      && fn.name.front()->name.front()->simple_code == Code::OP_TYPE)
-  {
+  if (!fn.name.empty() && fn.name.front()->simple_code == Code::OP_TYPE) {
     // operator <type>
     fname();
   } else {
