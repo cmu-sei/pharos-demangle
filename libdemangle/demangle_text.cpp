@@ -176,6 +176,7 @@ void Converter::operator()()
    case SymbolType::StaticClassMember:
    case SymbolType::ClassMethod:
    case SymbolType::GlobalFunction:
+   case SymbolType::VtorDisp:
     do_type(t,  [this] { do_name(t); });
     break;
    case SymbolType::GlobalObject:
@@ -229,7 +230,6 @@ void Converter::operator()()
     break;
    case SymbolType::Unspecified:
    case SymbolType::GlobalThing1:
-   case SymbolType::VtorDisp:
    case SymbolType::HexSymbol:
     break;
   }
@@ -498,6 +498,9 @@ void Converter::do_function(
       if (name) name();
       if (fn.method_property == MethodProperty::Thunk && fn.n2) {
         stream << "`adjustor{" << fn.n2 << "}' ";
+      }
+      if (fn.symbol_type == SymbolType::VtorDisp) {
+        stream << "`vtordisp{" << fn.n1 << ',' << fn.n2 << "}' ";
       }
       do_args(fn.args);
       do_cv(fn, AFTER);
