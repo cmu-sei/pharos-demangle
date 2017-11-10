@@ -32,6 +32,8 @@ class TextOutput {
     MS_BROKEN_METHODTHUNK                        = 0x100,
     // undname discards cv on pointer return values
     DISCARD_CV_ON_RETURN_POINTER                 = 0x200,
+    // undname adds extra apostrophe on static guards
+    MS_BROKEN_STATIC_GUARD                       = 0x400,
   };
 
   class Attributes {
@@ -65,6 +67,7 @@ class TextOutput {
     attr.set(USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE);
     attr.set(MS_BROKEN_METHODTHUNK);
     attr.set(DISCARD_CV_ON_RETURN_POINTER);
+    attr.set(MS_BROKEN_STATIC_GUARD);
     return attr;
   };
 

@@ -185,11 +185,17 @@ void Converter::operator()()
       stream << '}';
     }
     break;
+   case SymbolType::StaticGuard:
+    do_name(t.name);
+    stream << '{' << t.n1 << '}';
+    if (stream.attr[TextOutput::MS_BROKEN_STATIC_GUARD]) {
+      stream << '\'';
+    }
+    break;
    case SymbolType::Unspecified:
    case SymbolType::GlobalThing1:
    case SymbolType::String:
    case SymbolType::VtorDisp:
-   case SymbolType::StaticGuard:
    case SymbolType::HexSymbol:
     break;
   }
