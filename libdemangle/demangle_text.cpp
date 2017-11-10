@@ -167,9 +167,26 @@ void Converter::operator()()
       stream << " }'";
     }
     break;
+   case SymbolType::GlobalThing2:
+    do_cv(t, AFTER);
+    do_name(t.instance_name);
+    if (!t.com_interface.empty()) {
+      stream << "{for ";
+      auto i = t.com_interface.begin();
+      auto e = t.com_interface.end();
+      while (i != e) {
+        stream << '`';
+        do_name((*i++)->name);
+        stream << '\'';
+        if (i != e) {
+          stream << "s ";
+        }
+      }
+      stream << '}';
+    }
+    break;
    case SymbolType::Unspecified:
    case SymbolType::GlobalThing1:
-   case SymbolType::GlobalThing2:
    case SymbolType::String:
    case SymbolType::VtorDisp:
    case SymbolType::StaticGuard:
