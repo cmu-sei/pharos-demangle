@@ -74,8 +74,9 @@ class Converter {
   ConvStream stream;
   DemangledType const & t;
   bool do_cconv = true;
+  bool in_op_type = false;
 
-  enum cv_context_t { TYPE, FUNCTION };
+  enum cv_context_t { BEFORE, AFTER };
 
  public:
   Converter(TextOutput::Attributes const & a, std::ostream & s, DemangledType const & dt)
@@ -205,7 +206,7 @@ void Converter::do_name(
         stream << '~';
       }
       if (i == b) {
-        stream << "<ERRNOCLASS>";
+        stream << "{ERRNOCLASS}";
       } else {
         auto save = tset(template_parameters_,
                          stream.attr[TextOutput::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
@@ -219,7 +220,12 @@ void Converter::do_name(
         do_template_params(frag->template_parameters);
       }
       stream << ' ';
-      if (retval_) do_type(*retval_);
+      if (retval_) {
+        auto save = tset(in_op_type, true);
+        do_type(*retval_);
+      } else {
+        stream << "{UNKNOWN_TYPE}";
+      }
       if (stream.attr[TextOutput::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE]) {
         continue;
       }
@@ -379,7 +385,7 @@ void Converter::do_pointer(
       stream << "::";
     }
     do_pointer_type(type);
-    do_cv(type, TYPE);
+    do_cv(type, BEFORE);
     if (name) name();
     if (parens) stream << ')';
   };
@@ -415,7 +421,7 @@ void Converter::do_type(
     return;
   }
   do_name(type);
-  do_cv(type, TYPE);
+  do_cv(type, BEFORE);
   if (pname) {
     pname();
   }
@@ -434,7 +440,7 @@ void Converter::do_function(
       }
       if (name) name();
       do_args(fn.args);
-      do_cv(fn, FUNCTION);
+      do_cv(fn, AFTER);
       do_refspec(fn);
     }
   };
@@ -459,20 +465,20 @@ void Converter::do_cv(
 {
   bool is_retval = retval_ == &type;
   bool discard = stream.attr[TextOutput::DISCARD_CV_ON_RETURN_POINTER]
-                 && type.is_pointer && is_retval;
-  char const * a = (ctx == TYPE) ? " " : "";
-  char const * b = (ctx == FUNCTION) ? " " : "";
+                 && type.is_pointer && is_retval && !in_op_type;
+  char const * a = (ctx == BEFORE) ? " " : "";
+  char const * b = (ctx == AFTER) ? " " : "";
 
   auto cv = [this, &type, a, b]() {
     if (type.is_const) stream << a << "const" << b;
     if (type.is_volatile) stream << a << "volatile" << b;
   };
 
-  if (!discard && ctx == FUNCTION) cv();
+  if (!discard && ctx == AFTER) cv();
   if (type.unaligned) stream << a << "__unaligned" << b;
   if (type.ptr64) stream << a << "__ptr64" << b;
   if (type.restrict) stream << a << "__restrict" << b;
-  if (!discard && ctx == TYPE) cv();
+  if (!discard && ctx == BEFORE) cv();
 }
 
 void Converter::do_refspec(
