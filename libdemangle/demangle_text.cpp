@@ -161,7 +161,13 @@ void Converter::do_method_properties(DemangledType const & m)
   }
   stream << m.scope;
   if (m.method_property == MethodProperty::Static) stream << "static ";
-  if (m.method_property == MethodProperty::Virtual) stream << "virtual ";
+  if (m.method_property == MethodProperty::Virtual
+      // Vector-deleting destructor thunks are always virtual
+      || (m.method_property == MethodProperty::Thunk &&
+          !m.name.empty() && m.name.front()->simple_code == Code::VECTOR_DELETING_DTOR))
+  {
+    stream << "virtual ";
+  }
 }
 
 void Converter::operator()()
