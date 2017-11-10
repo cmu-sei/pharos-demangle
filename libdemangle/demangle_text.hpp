@@ -34,6 +34,8 @@ class TextOutput {
     DISCARD_CV_ON_RETURN_POINTER                 = 0x200,
     // undname adds extra apostrophe on static guards
     MS_BROKEN_STATIC_GUARD                       = 0x400,
+    // verbose constant string symbols
+    VERBOSE_CONSTANT_STRING                      = 0x800,
   };
 
   class Attributes {

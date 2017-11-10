@@ -101,6 +101,7 @@ class Converter {
   void do_cv(DemangledType const & type, cv_context_t ctx);
   void do_refspec(DemangledType const & fn);
   void do_method_properties(DemangledType const & m);
+  void output_quoted_string(std::string const & s);
 
   bool template_parameters_ = true;
   DemangledType const * retval_ = nullptr;
@@ -132,6 +133,22 @@ Stream operator<<(Stream stream, Scope scope) {
    case Scope::Public: return stream << "public: ";
   }
   return stream;
+}
+
+void Converter::output_quoted_string(std::string const & s)
+{
+  static std::string special_chars("\"\\\a\b\f\n\r\t\v\0", 10);
+  static std::string names("\"\\abfnrtv0", 10);
+  stream << '\"';
+  for (auto c : s) {
+    auto pos = special_chars.find_first_of(c);
+    if (pos == std::string::npos) {
+      stream << c;
+    } else {
+      stream << '\\' << names[pos];
+    }
+  }
+  stream << '\"';
 }
 
 void Converter::do_method_properties(DemangledType const & m)
@@ -192,9 +209,20 @@ void Converter::operator()()
       stream << '\'';
     }
     break;
+   case SymbolType::String:
+    if (!stream.attr[TextOutput::VERBOSE_CONSTANT_STRING]) {
+      stream << "`string'";
+    } else {
+      do_type(*t.inner_type);
+      stream << '[' << t.n1 << "] = ";
+      output_quoted_string(t.simple_string);
+      if (t.n1 > 32) {
+        stream << "...";
+      }
+    }
+    break;
    case SymbolType::Unspecified:
    case SymbolType::GlobalThing1:
-   case SymbolType::String:
    case SymbolType::VtorDisp:
    case SymbolType::HexSymbol:
     break;
