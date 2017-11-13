@@ -502,11 +502,10 @@ void Converter::do_function(
         stream << fn.calling_convention << ' ';
       }
       if (name) name();
-      if (fn.method_property == MethodProperty::Thunk && fn.n2) {
-        stream << "`adjustor{" << fn.n2 << "}' ";
-      }
       if (fn.symbol_type == SymbolType::VtorDisp) {
         stream << "`vtordisp{" << fn.n1 << ',' << fn.n2 << "}' ";
+      } else if (fn.method_property == MethodProperty::Thunk && fn.n2) {
+        stream << "`adjustor{" << fn.n2 << "}' ";
       }
       do_args(fn.args);
       do_cv(fn, AFTER);
