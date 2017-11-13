@@ -88,7 +88,7 @@ class VisualStudioDemangler
   DemangledTypePtr & get_storage_class_modifiers(DemangledTypePtr & t);
   DemangledTypePtr & get_managed_properties(DemangledTypePtr & t, int & cli_array);
   DemangledTypePtr & get_real_enum_type(DemangledTypePtr & t);
-  DemangledTypePtr & get_rtti(DemangledTypePtr & t);
+  DemangledTypePtr & add_rtti(DemangledTypePtr & t);
   DemangledTypePtr & process_return_storage_class(DemangledTypePtr & t);
   DemangledTypePtr & process_calling_convention(DemangledTypePtr & t);
   DemangledTypePtr & process_method_storage_class(DemangledTypePtr & t);
@@ -1252,7 +1252,7 @@ DemangledTypePtr & VisualStudioDemangler::add_special_name_code(DemangledTypePtr
      case 'N': t->add_name(Code::EH_VECTOR_VBASE_CTOR_ITER); break;
      case 'O': t->add_name(Code::COPY_CTOR_CLOSURE); break;
      case 'P': t->add_name(Code::UDT_RETURNING); break;
-     case 'R': return get_rtti(t->add_name());
+     case 'R': return add_rtti(t);
      case 'S': t->add_name(Code::LOCAL_VFTABLE); break;
      case 'T': t->add_name(Code::LOCAL_VFTABLE_CTOR_CLOSURE); break;
      case 'U': t->add_name(Code::OP_NEW_ARRAY); break;
@@ -1377,7 +1377,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
 }
 
 // It's still a little unclear what this returns.   Maybe a custom RTTI object?
-DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
+DemangledTypePtr & VisualStudioDemangler::add_rtti(DemangledTypePtr & t) {
   // UNDNAME sets a flag to  prevent later processing of return values?
 
   // Character advancement is confusing and ugly here...  get_special_name_code() currently
@@ -1388,18 +1388,20 @@ DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
    case '0':
     advance_to_next_char();
     // Why there's a return type for RTTI descriptor is a little unclear to me...
-    get_return_type(t);
+    t->retval = std::make_shared<DemangledType>();
+    get_return_type(t->retval);
     t->add_name(Code::RTTI_TYPE_DESC);
     break;
-   case '1': {
-     advance_to_next_char();
-     auto n = t->add_name(Code::RTTI_BASE_CLASS_DESC);
-     n->n1 = get_number();
-     n->n2 = get_number();
-     n->n3 = get_number();
-     n->n4 = get_number();
-     break;
-   }
+   case '1':
+    {
+      advance_to_next_char();
+      auto n = t->add_name(Code::RTTI_BASE_CLASS_DESC);
+      n->n1 = get_number();
+      n->n2 = get_number();
+      n->n3 = get_number();
+      n->n4 = get_number();
+    }
+    break;
    case '2':
     advance_to_next_char();
     t->add_name(Code::RTTI_BASE_CLASS_ARRAY); break;
@@ -1412,8 +1414,7 @@ DemangledTypePtr & VisualStudioDemangler::get_rtti(DemangledTypePtr & t) {
    default:
     bad_code(c, "RTTI");
   }
-
-  return t;
+  return t->name.back();
 }
 
 DemangledTypePtr &

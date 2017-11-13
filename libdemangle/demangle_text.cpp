@@ -179,6 +179,13 @@ void Converter::operator()()
    case SymbolType::VtorDisp:
     do_type(t,  [this] { do_name(t); });
     break;
+   case SymbolType::GlobalThing1:
+    if (t.retval) {
+      do_type(*t.retval);
+      stream << ' ';
+    }
+    do_name(t);
+    break;
    case SymbolType::GlobalObject:
     do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
     break;
@@ -229,7 +236,6 @@ void Converter::operator()()
     }
     break;
    case SymbolType::Unspecified:
-   case SymbolType::GlobalThing1:
    case SymbolType::HexSymbol:
     break;
   }
