@@ -173,7 +173,6 @@ void Converter::do_method_properties(DemangledType const & m)
 void Converter::operator()()
 {
   switch (t.symbol_type) {
-   case SymbolType::StaticClassMember:
    case SymbolType::ClassMethod:
    case SymbolType::GlobalFunction:
    case SymbolType::VtorDisp:
@@ -186,6 +185,7 @@ void Converter::operator()()
     }
     do_name(t);
     break;
+   case SymbolType::StaticClassMember:
    case SymbolType::GlobalObject:
     do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
     break;
