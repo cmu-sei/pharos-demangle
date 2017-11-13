@@ -257,7 +257,14 @@ void Converter::do_name(
       stream << "::";
     }
     auto & frag = *i;
-    if (frag->is_embedded) {
+    auto next = std::next(i);
+    if (next != e && (*next)->simple_code == Code::DYNAMIC_ATEXIT_DTOR) {
+      // Special case for DYNAMIC_ATEXIT_DTOR
+      stream << "`dynamic atexit destructor for '";
+      do_name(i, next);
+      stream << "''";
+      i = next;
+    } else if (frag->is_embedded) {
       // Embedded symbols get `' around them
       stream << '`';
       sub(*frag)();
