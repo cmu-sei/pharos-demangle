@@ -141,7 +141,9 @@ class DemangledType {
   // Really an enum: 0=near, 1=far, 2=huge
   Distance distance = Distance::Unspecified;
 
-  bool ptr64 = false;
+  // ptr64 is an integer because a global symbol that is a __ptr64 pointer can itself be
+  // __ptr64.  A count of "2" here indicates this corner case.
+  int ptr64 = 0;
   bool unaligned = false;
   bool restrict = false;
 

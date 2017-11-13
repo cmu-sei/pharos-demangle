@@ -934,7 +934,7 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
     progress("pointer storage class modifier");
     switch (c) {
      case 'E':
-      t->ptr64 = true;        // <type> __ptr64
+      t->ptr64++;             // <type> __ptr64
       break;
      case 'F':
       t->unaligned = true;    // __unaligned <type>
@@ -943,7 +943,7 @@ VisualStudioDemangler::get_storage_class_modifiers(DemangledTypePtr & t)
       t->is_reference = true; // <type> &
       break;
      case 'H':
-      t->is_refref = true;   // <type> &&
+      t->is_refref = true;    // <type> &&
       break;
      case 'I':
       t->restrict = true;     // <type> __restrict
@@ -2117,7 +2117,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
     get_storage_class(tmp);
     t->is_const = tmp->is_const;
     t->is_volatile = tmp->is_volatile;
-    t->ptr64 = tmp->ptr64;
+    t->ptr64 += tmp->ptr64;
     t->unaligned = tmp->unaligned;
     t->restrict = tmp->restrict;
   }
@@ -2196,7 +2196,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
    case SymbolType::StaticClassMember:
     // This is backwards.  We should have read the initial name into a special place, and then
     // had all other places use the default place...
-    t->instance_name = t->name;
+    t->instance_name = std::move(t->name);
     t->name.clear();
     get_type(t); // Table 9
     get_storage_class_modifiers(t);

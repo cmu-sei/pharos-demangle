@@ -96,10 +96,8 @@ class Converter {
   void do_args(FunctionArgs const & args);
   void do_type(DemangledType const & type, std::function<void()> name = nullptr);
   void do_pointer(DemangledType const & ptr, std::function<void()> name = nullptr);
-  void do_pointer_type(DemangledType const & ptr);
   void do_function(DemangledType const & fn, std::function<void()> name = nullptr);
-  void do_cv(DemangledType const & type, cv_context_t ctx);
-  void do_refspec(DemangledType const & fn);
+  void do_storage_properties(DemangledType const & type, cv_context_t ctx);
   void do_method_properties(DemangledType const & m);
   void output_quoted_string(std::string const & s);
 
@@ -162,9 +160,10 @@ void Converter::do_method_properties(DemangledType const & m)
   stream << m.scope;
   if (m.method_property == MethodProperty::Static) stream << "static ";
   if (m.method_property == MethodProperty::Virtual
-      // Vector-deleting destructor thunks are always virtual
+      // Thunks are virtual
       || (m.method_property == MethodProperty::Thunk &&
-          !m.name.empty() && m.name.front()->simple_code == Code::VECTOR_DELETING_DTOR))
+          // Except for vcall?
+          (!m.name.empty() && m.name.front()->simple_code != Code::VCALL)))
   {
     stream << "virtual ";
   }
@@ -199,7 +198,7 @@ void Converter::operator()()
     }
     break;
    case SymbolType::GlobalThing2:
-    do_cv(t, AFTER);
+    do_storage_properties(t, AFTER);
     do_name(t.instance_name);
     if (!t.com_interface.empty()) {
       stream << "{for ";
@@ -430,14 +429,6 @@ void Converter::do_args(
   stream << ')';
 }
 
-void Converter::do_pointer_type(
-  DemangledType const & ptr)
-{
-  if (ptr.is_pointer) stream << (ptr.is_gc ? '^' : '*');
-  if (ptr.is_reference) stream << (ptr.is_gc ? '%' : '&');
-  if (ptr.is_refref) stream << "&&";
-}
-
 void Converter::do_pointer(
   DemangledType const & type,
   std::function<void()> name)
@@ -454,8 +445,11 @@ void Converter::do_pointer(
       do_name(type);
       stream << "::";
     }
-    do_pointer_type(type);
-    do_cv(type, BEFORE);
+    do_storage_properties(type, BEFORE);
+    if (type.ptr64 > 1) {
+      // Gross hack to deal with the fact the the symbol can be __ptr64 as well as the type
+      stream << " __ptr64";
+    }
     if (name) name();
     if (parens) stream << ')';
   };
@@ -491,7 +485,7 @@ void Converter::do_type(
     return;
   }
   do_name(type);
-  do_cv(type, BEFORE);
+  do_storage_properties(type, BEFORE);
   if (pname) {
     pname();
   }
@@ -515,8 +509,7 @@ void Converter::do_function(
         stream << "`adjustor{" << fn.n2 << "}' ";
       }
       do_args(fn.args);
-      do_cv(fn, AFTER);
-      do_refspec(fn);
+      do_storage_properties(fn, AFTER);
     }
   };
   auto rv = fn.retval;
@@ -533,7 +526,7 @@ void Converter::do_function(
   }
 }
 
-void Converter::do_cv(
+void Converter::do_storage_properties(
   DemangledType const & type, cv_context_t ctx)
 {
   bool is_retval = retval_ == &type;
@@ -549,16 +542,12 @@ void Converter::do_cv(
 
   if (!discard && ctx == AFTER) cv();
   if (type.unaligned) stream << a << "__unaligned" << b;
+  if (type.is_pointer) stream << a << (type.is_gc ? '^' : '*') << b;
+  if (type.is_reference) stream << a << (type.is_gc ? '%' : '&') << b;
+  if (type.is_refref) stream << a << "&&" << b;
   if (type.ptr64) stream << a << "__ptr64" << b;
   if (type.restrict) stream << a << "__restrict" << b;
   if (!discard && ctx == BEFORE) cv();
-}
-
-void Converter::do_refspec(
-  DemangledType const & fn)
-{
-  if (fn.is_reference) stream << '&';
-  if (fn.is_refref) stream << "&&";
 }
 
 } // namespace detail

@@ -203,7 +203,9 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
 
   handle_symbol_type(obj, sym);
   handle_distance(obj, sym);
-  add_bool("ptr64", sym.ptr64);
+  if (sym.ptr64) {
+    obj.add("ptr64", sym.ptr64);
+  }
   add_bool("unaligned", sym.unaligned);
   add_bool("restrict", sym.restrict);
   add_bool("is_gc", sym.is_gc);
