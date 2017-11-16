@@ -691,8 +691,8 @@ StringOutput::str(bool is_retval) const
   // type) will be in the instance_name and not the ordinary name field.
   if (t->symbol_type == SymbolType::GlobalObject
       || t->symbol_type == SymbolType::StaticClassMember
-      || t->symbol_type == SymbolType::GlobalThing1
-      || t->symbol_type == SymbolType::GlobalThing2)
+      || t->symbol_type == SymbolType::RTTI
+      || t->symbol_type == SymbolType::VTable)
   {
     stream << ' ';
     stream << str_name_qualifiers(t->instance_name);
@@ -1622,15 +1622,15 @@ DemangledTypePtr & VisualStudioDemangler::get_symbol_type(DemangledTypePtr & t)
     t->symbol_type = SymbolType::StaticGuard;
     return t;
 
-    // Every indication is that 6 and 7 demangle identically in the offical undname tool.
+    // Appears to be vtable entries.
    case '6':
    case '7':
-    t->symbol_type = SymbolType::GlobalThing2; return t;
+    t->symbol_type = SymbolType::VTable; return t;
 
-    // Symbol types '8' and '9' are names with no type? e.g. ?X@@8 demangles to simply 'X'
+    // These always seem to be RTTI information
    case '8':
    case '9':
-    t->symbol_type = SymbolType::GlobalThing1; return t;
+    t->symbol_type = SymbolType::RTTI; return t;
 
     // Codes A-X are for class methods.
    case 'A': return update_method(t, Scope::Private, MethodProperty::Ordinary, Distance::Near);
@@ -2176,7 +2176,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
   }
 
   switch(t->symbol_type) {
-   case SymbolType::GlobalThing2:
+   case SymbolType::VTable:
     {
       t->instance_name = t->name;
       t->name.clear();
@@ -2189,7 +2189,7 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     }
     return t;
    case SymbolType::String:
-   case SymbolType::GlobalThing1:
+   case SymbolType::RTTI:
    case SymbolType::HexSymbol:
     return t;
    case SymbolType::GlobalObject:

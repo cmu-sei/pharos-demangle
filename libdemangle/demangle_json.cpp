@@ -25,11 +25,11 @@ void JsonOutput::handle_symbol_type(Object & obj, DemangledType const & sym) con
    case SymbolType::ClassMethod:
     symbol_type = "class method";
     break;
-   case SymbolType::GlobalThing1:
-    symbol_type = "global thing 1";
+   case SymbolType::RTTI:
+    symbol_type = "RTTI";
     break;
-   case SymbolType::GlobalThing2:
-    symbol_type = "global thing 2";
+   case SymbolType::VTable:
+    symbol_type = "vtable";
     break;
    case SymbolType::String:
     symbol_type = "string";

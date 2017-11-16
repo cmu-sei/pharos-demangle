@@ -189,7 +189,7 @@ void Converter::operator()()
     // function-like
     do_type(t,  [this] { do_name(t); });
     break;
-   case SymbolType::GlobalThing1:
+   case SymbolType::RTTI:
     // RTTI
     if (t.retval) {
       do_type(*t.retval);
@@ -199,7 +199,7 @@ void Converter::operator()()
     break;
    case SymbolType::StaticClassMember:
    case SymbolType::GlobalObject:
-    //
+    // static objects
     do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
     break;
    case SymbolType::MethodThunk:
@@ -211,7 +211,7 @@ void Converter::operator()()
       stream << " }'";
     }
     break;
-   case SymbolType::GlobalThing2:
+   case SymbolType::VTable:
     // vtables
     do_storage_properties(t, AFTER);
     do_name(t.instance_name);
