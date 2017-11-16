@@ -164,6 +164,17 @@ Stream operator<<(Stream stream, Scope scope) {
   return stream;
 }
 
+template <typename Stream>
+Stream operator<<(Stream stream, Distance distance) {
+  switch (distance) {
+   case Distance::Unspecified: break;
+   case Distance::Near: return stream << "near ";
+   case Distance::Far: return stream << "far ";
+   case Distance::Huge: return stream << "huge ";
+  }
+  return stream;
+}
+
 void Converter::output_quoted_string(std::string const & s)
 {
   static std::string special_chars("\"\\\a\b\f\n\r\t\v\0", 10);
@@ -516,6 +527,9 @@ void Converter::do_type(
   std::function<void()> name)
 {
   do_method_properties(type);
+  if (type.distance != Distance::Near || stream.attr[TextOutput::OUTPUT_NEAR]) {
+    stream << type.distance;
+  }
   auto pname = name;
   if (type.is_array) {
     auto aname = [this, &type, name]() {

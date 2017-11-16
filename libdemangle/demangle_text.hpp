@@ -57,6 +57,8 @@ class TextOutput {
     MS_BROKEN_STATIC_GUARD                       = 0x400,
     // verbose constant string symbols
     VERBOSE_CONSTANT_STRING                      = 0x800,
+    // Output near distances
+    OUTPUT_NEAR                                  = 0x1000,
   };
 
   class Attributes {
