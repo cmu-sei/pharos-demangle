@@ -38,11 +38,14 @@
 namespace {
 
 using demangle::JsonOutput;
+using demangle::TextOutput;
 using json::wrapper::Builder;
 
 class Demangler {
+  TextOutput::Attributes attr;
   bool debug = false;
   bool nosym = false;
+  bool noerror = false;
   bool raw = false;
   bool minimal = false;
   bool batch = false;
@@ -51,11 +54,14 @@ class Demangler {
   mutable demangle::TextOutput str;
 
  public:
-  void set_winmatch(bool) {
-    str.set_attributes(demangle::TextOutput::undname());
+  void set_attributes(TextOutput::Attributes a) {
+    str.set_attributes(a);
   }
   void set_nosym(bool val) {
     nosym = val;
+  }
+  void set_noerror(bool val) {
+    noerror = val;
   }
   void set_debug(bool val) {
     debug = val;
@@ -117,6 +123,8 @@ bool Demangler::demangle(std::string const & mangled) const
       if (batch) {
         std::cout << std::endl;
       }
+    } else if (noerror) {
+      std::cout << mangled << std::endl;
     } else {
       std::cout << "! " <<  mangled << " " << e.what() << std::endl;
     }
@@ -212,11 +220,11 @@ int main(int argc, char **argv)
     ("windows,w", "Try to match undname output as slavishly as possible")
     ("nosym,n",   "Only output the demangled name, not the symbol")
     ("nofile",    "Interpret arguments only as symbols, not at filenames")
-    ("debug,d",   "Output demangling debugging spew")
+    ("noerror",   "If a symbol fails to demangle, just output the mangled name")
+    ("debug,d",   "Output demangling debugging spew to stderr")
     ("json,j",    "JSON output")
-    ("raw",       "Raw JSON output")
-    ("minimal",   "Minimal JSON output")
-    ("batch",     "JSON objects as newline-separated, rather than in a list")
+    ("raw",       "Raw JSON output (mirrors contents of DemangledType class)")
+    ("batch",     "JSON objects are newline-separated, rather than in a list")
     ;
 
   po::options_description hidden;
@@ -270,28 +278,26 @@ int main(int argc, char **argv)
   }
 
   Demangler demangler;
+  demangler.set_attributes(TextOutput::pretty());
 
   if (vm.count("debug")) {
     demangler.set_debug(true);
   }
   if (vm.count("windows")) {
-    demangler.set_winmatch(true);
+    demangler.set_attributes(TextOutput::undname());
   }
   if (vm.count("nosym")) {
     demangler.set_nosym(true);
   }
+  if (vm.count("noerror")) {
+    demangler.set_noerror(true);
+  }
   if (vm.count("json")) {
     demangler.set_json(true);
   }
-  if (vm.count("raw") && vm.count("minimal")) {
-    std::cerr << "Cannot use --raw and --minimal at the same time" << std::endl;
-    return EXIT_FAILURE;
-  }
-
   if (vm.count("raw")) {
     demangler.set_raw(true);
-  }
-  if (vm.count("minimal")) {
+  } else {
     demangler.set_minimal(true);
   }
   if (vm.count("batch")) {
