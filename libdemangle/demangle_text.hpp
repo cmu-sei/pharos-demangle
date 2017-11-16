@@ -92,11 +92,32 @@ class TextOutput {
     return convert(stream, sym);
   }
 
+  class StreamApplyObject {
+    TextOutput const & obj;
+    DemangledType const & sym;
+   public:
+    StreamApplyObject(TextOutput const & t, DemangledType const & s) : obj(t), sym(s) {}
+
+    template <typename OStream>
+    OStream & operator()(OStream & stream) const {
+      return obj(stream, sym);
+    }
+  };
+
+  StreamApplyObject operator()(DemangledType const & sym) const {
+    return StreamApplyObject(*this, sym);
+  }
+
  private:
   void convert_(std::ostream & stream, DemangledType const & sym) const;
 
   Attributes attr;
 };
+
+template <typename OStream>
+OStream & operator<<(OStream & stream, TextOutput::StreamApplyObject const & sao) {
+  return sao(stream);
+}
 
 } // namespace demangle
 

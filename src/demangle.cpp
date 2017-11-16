@@ -79,11 +79,10 @@ bool Demangler::demangle(std::string const & mangled) const
         std::cout << std::endl;
       }
     } else {
-      auto dem = str.convert(*t);
       if (!nosym) {
         std::cout << mangled << " ";
       }
-      std::cout << dem << std::endl;
+      std::cout << str(*t) << std::endl;
     }
     return true;
   }
