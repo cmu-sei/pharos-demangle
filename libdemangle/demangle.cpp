@@ -167,7 +167,7 @@ save_stack::save_stack(ReferenceStack & stack, VisualStudioDemangler & dm, char 
 {
   swap(saved, original);
   if (demangler.debug) {
-    std::cout << "Pushing " << name << " stack and resetting to empty" << std::endl;
+    std::cerr << "Pushing " << name << " stack and resetting to empty" << std::endl;
   }
 }
 
@@ -175,7 +175,7 @@ inline save_stack::~save_stack()
 {
   swap(saved, original);
   if (demangler.debug) {
-    std::cout << "Popping " << name << " stack" << std::endl;
+    std::cerr << "Popping " << name << " stack" << std::endl;
     demangler.print_stack(original, name);
   }
 }
@@ -226,13 +226,13 @@ std::string quote_string(const std::string & input)
 void DemangledType::debug_type(bool match, size_t indent, std::string label) const {
   size_t x = 0;
   while (x < indent) {
-    std::cout << "  ";
+    std::cerr << "  ";
     x++;
   }
 
-  std::cout << "(ST=" << (int)symbol_type << ") "
+  std::cerr << "(ST=" << (int)symbol_type << ") "
             << "(isFunc=" << is_func << ") " << label << ": ";
-  std::cout << StringOutput(match)(*this) << std::endl;
+  std::cerr << StringOutput(match)(*this) << std::endl;
 
   if (is_pointer || is_reference) {
     if (inner_type) inner_type->debug_type(match, indent + 1, "PtrT");
@@ -253,8 +253,8 @@ void DemangledType::debug_type(bool match, size_t indent, std::string label) con
     }
     else {
       x = 0;
-      while (x++ < indent + 1) std::cout << "  ";
-      std::cout << boost::str(boost::format("TPar %d") % i) << std::endl;
+      while (x++ < indent + 1) std::cerr << "  ";
+      std::cerr << boost::str(boost::format("TPar %d") % i) << std::endl;
     }
     i++;
   }
@@ -830,7 +830,7 @@ char VisualStudioDemangler::get_current_char()
 void VisualStudioDemangler::progress(const std::string & msg)
 {
   if (debug) {
-    std::cout << "Parsing " << msg << " at character '" << get_current_char()
+    std::cerr << "Parsing " << msg << " at character '" << get_current_char()
               << "' at offset " << offset << std::endl;
   }
 }
@@ -838,10 +838,10 @@ void VisualStudioDemangler::progress(const std::string & msg)
 void VisualStudioDemangler::print_stack(
   ReferenceStack const & stack, const std::string & msg)
 {
-  std::cout << "The full " << msg << " stack currently contains:" << std::endl;
+  std::cerr << "The full " << msg << " stack currently contains:" << std::endl;
   size_t p = 0;
   for (auto & t : stack) {
-    std::cout << "  " << p << " : " << str(t) << std::endl;
+    std::cerr << "  " << p << " : " << str(t) << std::endl;
     p++;
   }
 }
@@ -849,7 +849,6 @@ void VisualStudioDemangler::print_stack(
 void VisualStudioDemangler::stack_debug(
   ReferenceStack const & stack, size_t position, const std::string & msg)
 {
-  std::string address = boost::str(boost::format("%p") % &stack);
   std::string entry;
 
   if (!debug) return;
@@ -861,8 +860,8 @@ void VisualStudioDemangler::stack_debug(
     entry = boost::str(boost::format("INVALID") % position);
   }
 
-  std::cout << "Pushing " << msg << " position " << position << " in stack at address "
-            << address << " refers to " << entry << std::endl;
+  std::cerr << "Pushing " << msg << " position " << position
+            << " in stack refers to " << entry << std::endl;
   print_stack(stack, msg);
 }
 
@@ -1007,7 +1006,7 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t)
     t->inner_type = get_type(t->inner_type);
   }
   if (debug) {
-    std::cout << "Inner type was: " << str(t->inner_type) << std::endl;
+    std::cerr << "Inner type was: " << str(t->inner_type) << std::endl;
   }
 
   if (handling_cli_array) {
@@ -1239,7 +1238,7 @@ DemangledTypePtr & VisualStudioDemangler::add_special_name_code(DemangledTypePtr
    case '?': {
      auto embedded = get_symbol();
      embedded->is_embedded = true;
-     if (debug) std::cout << "The fully embedded type was:" << str(embedded) << std::endl;
+     if (debug) std::cerr << "The fully embedded type was:" << str(embedded) << std::endl;
      t->name.push_back(std::move(embedded));
      return t->name.back();
    }
@@ -1794,7 +1793,7 @@ DemangledTypePtr VisualStudioDemangler::resolve_reference(
   bool fake = false;
   if (stack.size() >= stack_offset + 1) {
     auto & reference = stack.at(stack_offset);
-    if (debug) std::cout << "Reference refers to " <<  str(reference) << std::endl;
+    if (debug) std::cerr << "Reference refers to " <<  str(reference) << std::endl;
 
     // This is the "correct" thing to do.
     if (!fake) return reference;
@@ -1904,7 +1903,7 @@ DemangledTypePtr VisualStudioDemangler::add_templated_type(DemangledTypePtr & ty
   }
 
   progress("end of template parameters");
-  if (debug) std::cout << "Templated symbol was: " << str(templated_type) << std::endl;
+  if (debug) std::cerr << "Templated symbol was: " << str(templated_type) << std::endl;
 
   // Advance past the '@' that marked the end of the template parameters.
   advance_to_next_char();
@@ -1956,7 +1955,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
           else {
             uint64_t number = get_number();
             std::string numbered_namespace = boost::str(boost::format("`%d'") % number);
-            if (debug) std::cout << "Found numbered namespace: "
+            if (debug) std::cerr << "Found numbered namespace: "
                                  << numbered_namespace << std::endl;
             auto nns = std::make_shared<Namespace>(numbered_namespace);
             t->name.push_back(std::move(nns));
@@ -1979,7 +1978,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
   }
 
   progress("end of fully qualified name");
-  if (debug) std::cout << "Qualified name was: " << str(t) << std::endl;
+  if (debug) std::cerr << "Qualified name was: " << str(t) << std::endl;
 
   // Advance past the terminating '@' character.
   advance_to_next_char();
@@ -2023,7 +2022,7 @@ DemangledTypePtr VisualStudioDemangler::get_anonymous_namespace() {
 
   // Now build the return string from the bytes we consumed.
   std::string literal = mangled.substr(start_offset, offset - start_offset);
-  if (debug) std::cout << "Anonymous namespace ID was: " << literal << std::endl;
+  if (debug) std::cerr << "Anonymous namespace ID was: " << literal << std::endl;
 
   // Advance past the '@' that terminated the literal.
   advance_to_next_char();
@@ -2063,7 +2062,7 @@ std::string VisualStudioDemangler::get_literal() {
   literal = mangled.substr(start_offset, offset - start_offset);
 
   if (debug) {
-    std::cout << "Extracted literal from " << start_offset << " to " << offset
+    std::cerr << "Extracted literal from " << start_offset << " to " << offset
               << " (len=" << (offset - start_offset)
               << ") resulting in string: " << literal << std::endl;
   }
@@ -2146,7 +2145,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
   // Return code.  It's annoying that the modifiers come first and require us to allocate it.
   t->retval = std::make_shared<DemangledType>();
   get_return_type(t->retval);
-  if (debug) std::cout << "Return value was: " << str(t->retval) << std::endl;
+  if (debug) std::cerr << "Return value was: " << str(t->retval) << std::endl;
 
 
   // Whenever we start a nex set of function arguments, we start a new type stack?
@@ -2165,7 +2164,7 @@ DemangledTypePtr & VisualStudioDemangler::get_function(DemangledTypePtr & t) {
     progress("function argument");
     auto arg = get_type(true);
     t->args.push_back(arg);
-    if (debug) std::cout << "Arg #" << argno << " was: " << str(arg) << std::endl;
+    if (debug) std::cerr << "Arg #" << argno << " was: " << str(arg) << std::endl;
     // If the first parameter is void, it's the only parameter.
     argno++;
     if (argno == 1 && arg->simple_code == Code::VOID) break;
