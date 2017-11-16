@@ -96,6 +96,16 @@ class TextOutput {
     return attr;
   };
 
+  static Attributes pretty() {
+    auto attr =  Attributes();
+    attr.set(OUTPUT_THUNKS);
+    attr.set(SPACE_BETWEEN_TEMPLATE_BRACKETS);
+    attr.set(VERBOSE_CONSTANT_STRING);
+    attr.set(SPACE_AFTER_COMMA);
+    attr.set(OUTPUT_ANONYMOUS_NUMBERS);
+    return attr;
+  };
+
  public:
   TextOutput() = default;
   TextOutput(Attributes a) : attr(a) {}
