@@ -186,9 +186,11 @@ void Converter::operator()()
    case SymbolType::ClassMethod:
    case SymbolType::GlobalFunction:
    case SymbolType::VtorDisp:
+    // function-like
     do_type(t,  [this] { do_name(t); });
     break;
    case SymbolType::GlobalThing1:
+    // RTTI
     if (t.retval) {
       do_type(*t.retval);
       stream << ' ';
@@ -197,6 +199,7 @@ void Converter::operator()()
     break;
    case SymbolType::StaticClassMember:
    case SymbolType::GlobalObject:
+    //
     do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
     break;
    case SymbolType::MethodThunk:
@@ -209,6 +212,7 @@ void Converter::operator()()
     }
     break;
    case SymbolType::GlobalThing2:
+    // vtables
     do_storage_properties(t, AFTER);
     do_name(t.instance_name);
     if (!t.com_interface.empty()) {
@@ -227,6 +231,7 @@ void Converter::operator()()
     }
     break;
    case SymbolType::StaticGuard:
+    // Static variable guards
     do_name(t.name);
     stream << '{' << t.n1 << '}';
     if (stream.attr[TextOutput::MS_BROKEN_STATIC_GUARD]) {
@@ -234,6 +239,7 @@ void Converter::operator()()
     }
     break;
    case SymbolType::String:
+    // Constant string
     if (!stream.attr[TextOutput::VERBOSE_CONSTANT_STRING]) {
       stream << "`string'";
     } else {
@@ -245,8 +251,21 @@ void Converter::operator()()
       }
     }
     break;
-   case SymbolType::Unspecified:
    case SymbolType::HexSymbol:
+    // Simple hex numbers
+    stream << t.simple_string;
+    break;
+   case SymbolType::Unspecified:
+    // Guess based on contents
+    if (t.instance_name.empty()) {
+      if (t.name.empty()) {
+        do_type(t);
+      } else {
+        do_type(t,  [this] { do_name(t); });
+      }
+    } else {
+      do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
+    }
     break;
   }
 }
