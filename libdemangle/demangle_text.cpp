@@ -11,6 +11,8 @@ namespace demangle {
 
 namespace detail {
 
+constexpr bool SPACE_MUNGING = true;
+
 class Converter {
   struct ConvStream {
     std::ostream & stream;
@@ -29,12 +31,20 @@ class Converter {
       return (*this) << const_cast<std::string const &>(x);
     }
 
+    static bool is_symbol_char(char c) {
+      return c == '_' || std::isalnum(c);
+    }
+
     ConvStream & operator<<(std::string const & s) {
-      // if (last == ' ' && !s.empty() && s.front() == ' ') {
-      //   stream << s.substr(1);
-      // } else {
+      if (SPACE_MUNGING && !s.empty() && is_symbol_char(last) && is_symbol_char(s.front())) {
+        // Ensure a space between symbols
+        stream << ' ' << s;
+      } else if (SPACE_MUNGING && last == ' ' && !s.empty() && s.front() == ' ') {
+        // Don't allow double-spaces
+        stream << s.substr(1);
+      } else {
         stream << s;
-      // }
+      }
       if (!s.empty()) {
         last = s.back();
       }
@@ -47,9 +57,10 @@ class Converter {
     }
 
     ConvStream & operator<<(char c) {
-      // if (c == ' ' && c == last) {
-      //   return *this;
-      // }
+      if (SPACE_MUNGING && c == ' ' && c == last) {
+        // Don't allow double-spaces
+        return *this;
+      }
       if ((c == '<' || c == '>') && c == last
           && attr[TextOutput::SPACE_BETWEEN_TEMPLATE_BRACKETS])
       {
@@ -68,7 +79,7 @@ class Converter {
       }
     }
 
-    char last;
+    char last = ' ';
   };
 
   ConvStream stream;
