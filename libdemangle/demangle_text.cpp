@@ -36,9 +36,9 @@ constexpr bool SPACE_MUNGING = true;
 class Converter {
   struct ConvStream {
     std::ostream & stream;
-    TextOutput::Attributes const & attr;
+    TextAttributes const & attr;
 
-    ConvStream(std::ostream & s, TextOutput::Attributes const & a) : stream(s), attr(a) {}
+    ConvStream(std::ostream & s, TextAttributes const & a) : stream(s), attr(a) {}
 
     template <typename T>
     ConvStream & operator<<(T && x) {
@@ -82,7 +82,7 @@ class Converter {
         return *this;
       }
       if ((c == '<' || c == '>') && c == last
-          && attr[TextOutput::SPACE_BETWEEN_TEMPLATE_BRACKETS])
+          && attr[TextAttribute::SPACE_BETWEEN_TEMPLATE_BRACKETS])
       {
         (*this) << ' ';
       }
@@ -93,7 +93,7 @@ class Converter {
     }
 
     void fixup() {
-      if (last == ',' && attr[TextOutput::SPACE_AFTER_COMMA]) {
+      if (last == ',' && attr[TextAttribute::SPACE_AFTER_COMMA]) {
         (*this) << ' ';
         last = ' ';
       }
@@ -110,7 +110,7 @@ class Converter {
   enum cv_context_t { BEFORE, AFTER };
 
  public:
-  Converter(TextOutput::Attributes const & a, std::ostream & s, DemangledType const & dt)
+  Converter(TextAttributes const & a, std::ostream & s, DemangledType const & dt)
     : stream(s, a), t(dt)
   {}
   void operator()();
@@ -199,8 +199,8 @@ void Converter::output_quoted_string(std::string const & s)
 
 void Converter::do_method_properties(DemangledType const & m)
 {
-  if (stream.attr[TextOutput::OUTPUT_EXTERN] && m.extern_c) stream << "extern \"C\"";
-  if (stream.attr[TextOutput::OUTPUT_THUNKS]
+  if (stream.attr[TextAttribute::OUTPUT_EXTERN] && m.extern_c) stream << "extern \"C\"";
+  if (stream.attr[TextAttribute::OUTPUT_THUNKS]
       && m.method_property == MethodProperty::Thunk)
   {
     stream << "[thunk]: ";
@@ -244,7 +244,7 @@ void Converter::operator()()
     stream << t.calling_convention << ' ';
     do_name(t);
     stream << '{' << t.n1 << ",{flat}}'";
-    if (stream.attr[TextOutput::MS_BROKEN_METHODTHUNK]) {
+    if (stream.attr[TextAttribute::MS_BROKEN_METHODTHUNK]) {
       stream << " }'";
     }
     break;
@@ -271,13 +271,13 @@ void Converter::operator()()
     // Static variable guards
     do_name(t.name);
     stream << '{' << t.n1 << '}';
-    if (stream.attr[TextOutput::MS_BROKEN_STATIC_GUARD]) {
+    if (stream.attr[TextAttribute::MS_BROKEN_STATIC_GUARD]) {
       stream << '\'';
     }
     break;
    case SymbolType::String:
     // Constant string
-    if (!stream.attr[TextOutput::VERBOSE_CONSTANT_STRING]) {
+    if (!stream.attr[TextAttribute::VERBOSE_CONSTANT_STRING]) {
       stream << "`string'";
     } else {
       do_type(*t.inner_type);
@@ -346,14 +346,14 @@ void Converter::do_name(
         stream << "{ERRNOCLASS}";
       } else {
         auto save = tset(template_parameters_,
-                         stream.attr[TextOutput::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
+                         stream.attr[TextAttribute::CDTOR_CLASS_TEMPLATE_PARAMETERS]);
         do_name(std::prev(i), i);
       }
     } else if (frag->simple_code == Code::OP_TYPE) {
       // Where do we place template parameters in an operator type construct?  Microsoft does
       // it one way, the rest of the world does it another.
       stream << "operator";
-      if (stream.attr[TextOutput::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE]) {
+      if (stream.attr[TextAttribute::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE]) {
         do_template_params(frag->template_parameters);
       }
       stream << ' ';
@@ -363,7 +363,7 @@ void Converter::do_name(
       } else {
         stream << "{UNKNOWN_TYPE}";
       }
-      if (stream.attr[TextOutput::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE]) {
+      if (stream.attr[TextAttribute::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE]) {
         continue;
       }
     } else {
@@ -379,7 +379,7 @@ void Converter::do_name(
   DemangledType const & name)
 {
   auto stype = [this, &name](char const * s) {
-    if (stream.attr[TextOutput::MS_SIMPLE_TYPES]) {
+    if (stream.attr[TextAttribute::MS_SIMPLE_TYPES]) {
       stream << s;
     } else {
       stream << "std::" << code_string(name.simple_code);
@@ -391,7 +391,7 @@ void Converter::do_name(
     if (name.name.empty()) {
       if (name.is_anonymous) {
         stream << "`anonymous namespace";
-        if (stream.attr[TextOutput::OUTPUT_ANONYMOUS_NUMBERS]) {
+        if (stream.attr[TextAttribute::OUTPUT_ANONYMOUS_NUMBERS]) {
           stream << ' ' << name.simple_string;
         }
         stream << '\'';
@@ -534,7 +534,7 @@ void Converter::do_type(
   std::function<void()> name)
 {
   do_method_properties(type);
-  if (type.distance != Distance::Near || stream.attr[TextOutput::OUTPUT_NEAR]) {
+  if (type.distance != Distance::Near || stream.attr[TextAttribute::OUTPUT_NEAR]) {
     stream << type.distance;
   }
   auto pname = name;
@@ -601,7 +601,7 @@ void Converter::do_storage_properties(
   DemangledType const & type, cv_context_t ctx)
 {
   bool is_retval = retval_ == &type;
-  bool discard = stream.attr[TextOutput::DISCARD_CV_ON_RETURN_POINTER]
+  bool discard = stream.attr[TextAttribute::DISCARD_CV_ON_RETURN_POINTER]
                  && type.is_pointer && is_retval && !in_op_type;
   char const * a = (ctx == BEFORE) ? " " : "";
   char const * b = (ctx == AFTER) ? " " : "";

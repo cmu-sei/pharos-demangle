@@ -39,10 +39,11 @@ namespace {
 
 using demangle::JsonOutput;
 using demangle::TextOutput;
+using demangle::TextAttributes;
 using json::wrapper::Builder;
 
 class Demangler {
-  TextOutput::Attributes attr;
+  TextAttributes attr;
   bool debug = false;
   bool nosym = false;
   bool noerror = false;
@@ -54,7 +55,7 @@ class Demangler {
   mutable demangle::TextOutput str;
 
  public:
-  void set_attributes(TextOutput::Attributes a) {
+  void set_attributes(TextAttributes a) {
     attr = a;
     str.set_attributes(attr);
     if (json_output) {
@@ -283,13 +284,13 @@ int main(int argc, char **argv)
   }
 
   Demangler demangler;
-  demangler.set_attributes(TextOutput::pretty());
+  demangler.set_attributes(TextAttributes::pretty());
 
   if (vm.count("debug")) {
     demangler.set_debug(true);
   }
   if (vm.count("windows")) {
-    demangler.set_attributes(TextOutput::undname());
+    demangler.set_attributes(TextAttributes::undname());
   }
   if (vm.count("nosym")) {
     demangler.set_nosym(true);

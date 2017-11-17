@@ -29,90 +29,89 @@
 
 namespace demangle {
 
+enum class TextAttribute {
+  // class template parameters on ctors and dtors
+  CDTOR_CLASS_TEMPLATE_PARAMETERS              = 0x01,
+  // Microsoft legacy named names for [u]intX_t simple types
+  MS_SIMPLE_TYPES                              = 0x02,
+  // [thunk]: for thunks
+  OUTPUT_THUNKS                                = 0x04,
+  // extern "C"
+  OUTPUT_EXTERN                                = 0x08,
+  // spaces after commas
+  SPACE_AFTER_COMMA                            = 0x10,
+  // Include anonymous namespace numbers
+  OUTPUT_ANONYMOUS_NUMBERS                     = 0x20,
+  // spaces for templates between << and >>
+  SPACE_BETWEEN_TEMPLATE_BRACKETS              = 0x40,
+  // template parameters come before (instead of after) the type in user-defined conversion
+  // operators
+  USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE = 0x80,
+  // undname outputs an extra " }'"
+  MS_BROKEN_METHODTHUNK                        = 0x100,
+  // undname discards cv on pointer return values
+  DISCARD_CV_ON_RETURN_POINTER                 = 0x200,
+  // undname adds extra apostrophe on static guards
+  MS_BROKEN_STATIC_GUARD                       = 0x400,
+  // verbose constant string symbols
+  VERBOSE_CONSTANT_STRING                      = 0x800,
+  // Output near distances
+  OUTPUT_NEAR                                  = 0x1000,
+};
+
+class TextAttributes {
+ public:
+  TextAttributes() {}
+
+  TextAttributes & set(TextAttribute a) {
+    val |= static_cast<decltype(val)>(a);
+    return *this;
+  }
+  TextAttributes & unset(TextAttribute a) {
+    val &= ~static_cast<decltype(val)>(a);
+    return *this;
+  }
+
+  bool operator[](TextAttribute a) const {
+    return val & static_cast<decltype(val)>(a);
+  }
+
+  static TextAttributes undname() {
+    auto attr = TextAttributes();
+    attr.set(TextAttribute::OUTPUT_EXTERN);
+    attr.set(TextAttribute::OUTPUT_THUNKS);
+    attr.set(TextAttribute::CDTOR_CLASS_TEMPLATE_PARAMETERS);
+    attr.set(TextAttribute::MS_SIMPLE_TYPES);
+    attr.set(TextAttribute::SPACE_BETWEEN_TEMPLATE_BRACKETS);
+    attr.set(TextAttribute::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE);
+    attr.set(TextAttribute::MS_BROKEN_METHODTHUNK);
+    attr.set(TextAttribute::DISCARD_CV_ON_RETURN_POINTER);
+    attr.set(TextAttribute::MS_BROKEN_STATIC_GUARD);
+    return attr;
+  };
+
+  static TextAttributes pretty() {
+    auto attr =  TextAttributes();
+    attr.set(TextAttribute::OUTPUT_THUNKS);
+    attr.set(TextAttribute::SPACE_BETWEEN_TEMPLATE_BRACKETS);
+    attr.set(TextAttribute::VERBOSE_CONSTANT_STRING);
+    attr.set(TextAttribute::SPACE_AFTER_COMMA);
+    attr.set(TextAttribute::OUTPUT_ANONYMOUS_NUMBERS);
+    return attr;
+  };
+
+ private:
+  uint32_t val = 0;
+};
+
 class TextOutput {
  public:
-  enum Attribute {
-    // class template parameters on ctors and dtors
-    CDTOR_CLASS_TEMPLATE_PARAMETERS              = 0x01,
-    // Microsoft legacy named names for [u]intX_t simple types
-    MS_SIMPLE_TYPES                              = 0x02,
-    // [thunk]: for thunks
-    OUTPUT_THUNKS                                = 0x04,
-    // extern "C"
-    OUTPUT_EXTERN                                = 0x08,
-    // spaces after commas
-    SPACE_AFTER_COMMA                            = 0x10,
-    // Include anonymous namespace numbers
-    OUTPUT_ANONYMOUS_NUMBERS                     = 0x20,
-    // spaces for templates between << and >>
-    SPACE_BETWEEN_TEMPLATE_BRACKETS              = 0x40,
-    // template parameters come before (instead of after) the type in user-defined conversion
-    // operators
-    USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE = 0x80,
-    // undname outputs an extra " }'"
-    MS_BROKEN_METHODTHUNK                        = 0x100,
-    // undname discards cv on pointer return values
-    DISCARD_CV_ON_RETURN_POINTER                 = 0x200,
-    // undname adds extra apostrophe on static guards
-    MS_BROKEN_STATIC_GUARD                       = 0x400,
-    // verbose constant string symbols
-    VERBOSE_CONSTANT_STRING                      = 0x800,
-    // Output near distances
-    OUTPUT_NEAR                                  = 0x1000,
-  };
-
-  class Attributes {
-   public:
-    Attributes() {}
-
-    Attributes & set(Attribute a) {
-      val |= static_cast<decltype(val)>(a);
-      return *this;
-    }
-    Attributes & unset(Attribute a) {
-      val &= ~static_cast<decltype(val)>(a);
-      return *this;
-    }
-
-    bool operator[](Attribute a) const {
-      return val & static_cast<decltype(val)>(a);
-    }
-
-   private:
-    uint32_t val = 0;
-  };
-
-  static Attributes undname() {
-    auto attr =  Attributes();
-    attr.set(OUTPUT_EXTERN);
-    attr.set(OUTPUT_THUNKS);
-    attr.set(CDTOR_CLASS_TEMPLATE_PARAMETERS);
-    attr.set(MS_SIMPLE_TYPES);
-    attr.set(SPACE_BETWEEN_TEMPLATE_BRACKETS);
-    attr.set(USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE);
-    attr.set(MS_BROKEN_METHODTHUNK);
-    attr.set(DISCARD_CV_ON_RETURN_POINTER);
-    attr.set(MS_BROKEN_STATIC_GUARD);
-    return attr;
-  };
-
-  static Attributes pretty() {
-    auto attr =  Attributes();
-    attr.set(OUTPUT_THUNKS);
-    attr.set(SPACE_BETWEEN_TEMPLATE_BRACKETS);
-    attr.set(VERBOSE_CONSTANT_STRING);
-    attr.set(SPACE_AFTER_COMMA);
-    attr.set(OUTPUT_ANONYMOUS_NUMBERS);
-    return attr;
-  };
-
- public:
   TextOutput() = default;
-  TextOutput(Attributes a) : attr(a) {}
+  TextOutput(TextAttributes a) : attr(a) {}
 
   std::string convert(DemangledType const & sym) const;
 
-  void set_attributes(Attributes a) {
+  void set_attributes(TextAttributes a) {
     attr = a;
   }
 
@@ -149,7 +148,7 @@ class TextOutput {
  private:
   void convert_(std::ostream & stream, DemangledType const & sym) const;
 
-  Attributes attr;
+  TextAttributes attr;
 };
 
 template <typename OStream>

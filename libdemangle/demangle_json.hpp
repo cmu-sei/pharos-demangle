@@ -38,7 +38,7 @@ class JsonOutput {
 
  public:
   JsonOutput(Builder const & b) : builder(b) {}
-  void set_attributes(TextOutput::Attributes attr) {
+  void set_attributes(TextAttributes attr) {
     text.set_attributes(attr);
   }
   ObjectRef convert(DemangledType const & sym) const;
