@@ -24,6 +24,7 @@
 #define Include_demangle_json
 
 #include "demangle.hpp"
+#include "demangle_text.hpp"
 #include "json.hpp"
 
 namespace demangle {
@@ -37,8 +38,8 @@ class JsonOutput {
 
  public:
   JsonOutput(Builder const & b) : builder(b) {}
-  void set_windows(bool b = true) {
-    match = b;
+  void set_attributes(TextOutput::Attributes attr) {
+    text.set_attributes(attr);
   }
   ObjectRef convert(DemangledType const & sym) const;
   ObjectRef operator()(DemangledType const & sym) const {
@@ -49,7 +50,7 @@ class JsonOutput {
 
  private:
   Builder const & builder;
-  bool match = false;
+  TextOutput text;
 
   void handle_symbol_type(Object & obj, DemangledType const & sym) const;
   void handle_scope(Object & obj, DemangledType const & sym) const;

@@ -163,7 +163,7 @@ JsonOutput::ObjectRef JsonOutput::convert(DemangledType const & sym) const
   }
   handle_namespace(obj, sym);
 
-  obj.add("text", StringOutput(match)(sym));
+  obj.add("text", text.convert(sym));
 
   return std::move(node);
 }
@@ -306,17 +306,18 @@ JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
       obj.add("calling_convention", sym.calling_convention);
     }
     handle_distance(obj, sym);
-    StringOutput so;
-    add_string("class_name", so.get_class_name(sym));
-    add_string("function_name", so.get_method_name(sym));
-    add_string("function_signature", so.get_method_signature(sym));
+    add_string("class_name", text.get_class_name(sym));
+    add_string("function_name", text.get_method_name(sym));
+    add_string("function_signature", text.get_method_signature(sym));
 
     auto args = builder.array();
     for (auto & arg : sym.args) {
-      args->add(so(*arg));
+      args->add(text.convert(*arg));
     }
     obj.add("args", std::move(args));
-    add_string("return_type", so(*sym.retval));
+    add_string("return_type", text.convert(*sym.retval));
+  } else {
+    return raw(sym);
   }
 
   return std::move(node);

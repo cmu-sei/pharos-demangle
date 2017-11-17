@@ -55,7 +55,11 @@ class Demangler {
 
  public:
   void set_attributes(TextOutput::Attributes a) {
-    str.set_attributes(a);
+    attr = a;
+    str.set_attributes(attr);
+    if (json_output) {
+      json_output->set_attributes(attr);
+    }
   }
   void set_nosym(bool val) {
     nosym = val;
@@ -80,6 +84,7 @@ class Demangler {
       if (!builder) {
         builder = json::simple_builder();
         json_output = std::unique_ptr<JsonOutput>(new JsonOutput(*builder));
+        json_output->set_attributes(attr);
       }
     } else {
       builder.reset();
