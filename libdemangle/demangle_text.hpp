@@ -109,6 +109,7 @@ class TextAttributes {
   std::uint32_t val = 0;
 };
 
+
 class TextOutput {
  public:
   TextOutput() = default;
@@ -120,15 +121,25 @@ class TextOutput {
     attr = a;
   }
 
+  // Output symbol as text to stream
   template <typename OStream>
   OStream & convert(OStream & stream, DemangledType const & sym) const {
     convert_(stream, sym);
     return stream;
   }
+
+  // Output symbol as text to stream
   template <typename OStream>
   OStream & operator()(OStream & stream, DemangledType const & sym) const {
     return convert(stream, sym);
   }
+
+  // Get just the class name
+  std::string get_class_name(DemangledType const & sym) const;
+  // Get just the method name, without the class or arguments
+  std::string get_method_name(DemangledType const & sym) const;
+  // Get just the method name and arguments
+  std::string get_method_signature(DemangledType const & sym) const;
 
   class StreamApplyObject {
     TextOutput const & obj;
@@ -142,13 +153,11 @@ class TextOutput {
     }
   };
 
+  // In conbination with operator<<(Ostream &, StreamApplyObject), allows one to say:
+  //   TextOutput text; stream << text(sym);
   StreamApplyObject operator()(DemangledType const & sym) const {
     return StreamApplyObject(*this, sym);
   }
-
-  std::string get_class_name(DemangledType const & sym) const;
-  std::string get_method_name(DemangledType const & sym) const;
-  std::string get_method_signature(DemangledType const & sym) const;
 
  private:
   void convert_(std::ostream & stream, DemangledType const & sym) const;
