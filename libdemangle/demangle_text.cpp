@@ -34,11 +34,29 @@ namespace detail {
 constexpr bool SPACE_MUNGING = true;
 
 class Converter {
+
+  template <typename T>
+  struct Raw {
+    T val;
+  };
+
+  template <typename T>
+  static Raw<T> raw(T val) {
+    return Raw<T>{val};
+  }
+
   struct ConvStream {
     std::ostream & stream;
     TextAttributes const & attr;
 
     ConvStream(std::ostream & s, TextAttributes const & a) : stream(s), attr(a) {}
+
+    template <typename T>
+    ConvStream & operator<<(Raw<T> && x) {
+      stream << x.val;
+      last = '\0';
+      return *this;
+    }
 
     template <typename T>
     ConvStream & operator<<(T && x) {
@@ -189,9 +207,9 @@ void Converter::output_quoted_string(std::string const & s)
   for (auto c : s) {
     auto pos = special_chars.find_first_of(c);
     if (pos == std::string::npos) {
-      stream << c;
+      stream << raw(c);
     } else {
-      stream << '\\' << names[pos];
+      stream << raw('\\') << raw(names[pos]);
     }
   }
   stream << '\"';
