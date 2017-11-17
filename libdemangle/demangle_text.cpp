@@ -282,7 +282,7 @@ void Converter::operator()()
     } else {
       do_type(*t.inner_type);
       stream << '[' << t.n1 << "] = ";
-      output_quoted_string(t.simple_string);
+      output_quoted_string(t.name[0]->simple_string);
       if (t.n1 > 32) {
         stream << "...";
       }
