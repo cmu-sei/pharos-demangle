@@ -227,8 +227,8 @@ int main(int argc, char **argv)
     ("nofile",    "Interpret arguments only as symbols, not at filenames")
     ("noerror",   "If a symbol fails to demangle, just output the mangled name")
     ("debug,d",   "Output demangling debugging spew to stderr")
-    ("json,j",    "JSON output")
-    ("raw",       "Raw JSON output (mirrors contents of DemangledType class)")
+    ("json,j",    "JSON output  (mirrors contents of DemangledType class)")
+    ("minimal",   "Simplified JSON output")
     ("batch",     "JSON objects are newline-separated, rather than in a list")
     ;
 
@@ -300,10 +300,10 @@ int main(int argc, char **argv)
   if (vm.count("json")) {
     demangler.set_json(true);
   }
-  if (vm.count("raw")) {
-    demangler.set_raw(true);
-  } else {
+  if (vm.count("minimal")) {
     demangler.set_minimal(true);
+  } else {
+    demangler.set_raw(true);
   }
   if (vm.count("batch")) {
     demangler.set_batch(true);
