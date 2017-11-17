@@ -29,10 +29,10 @@
 
 namespace demangle {
 
-enum class TextAttribute {
+enum class TextAttribute : std::uint32_t {
   // class template parameters on ctors and dtors
   CDTOR_CLASS_TEMPLATE_PARAMETERS              = 0x01,
-  // Microsoft legacy named names for [u]intX_t simple types
+  // Microsoft legacy names for [u]intX_t simple types
   MS_SIMPLE_TYPES                              = 0x02,
   // [thunk]: for thunks
   OUTPUT_THUNKS                                = 0x04,
@@ -62,6 +62,8 @@ enum class TextAttribute {
 class TextAttributes {
  public:
   TextAttributes() {}
+  TextAttributes(TextAttribute a) : val(uint32_t(a)) {}
+  TextAttributes(uint32_t a) : val(a) {}
 
   TextAttributes & set(TextAttribute a) {
     val |= static_cast<decltype(val)>(a);
@@ -100,8 +102,11 @@ class TextAttributes {
     return attr;
   };
 
+  static std::vector<std::pair<const TextAttribute, const std::string>> const &
+  explain();
+
  private:
-  uint32_t val = 0;
+  std::uint32_t val = 0;
 };
 
 class TextOutput {

@@ -703,6 +703,41 @@ std::string TextOutput::get_method_signature(DemangledType const & sym) const
   return os.str();
 }
 
+std::vector<std::pair<const TextAttribute, const std::string>> const &
+TextAttributes::explain()
+{
+  static std::vector<std::pair<const TextAttribute, const std::string>> names{
+    {TextAttribute::CDTOR_CLASS_TEMPLATE_PARAMETERS,
+     "Output a class's template parameters on the constructor name as well"},
+    {TextAttribute::MS_SIMPLE_TYPES,
+     "Use Microsoft legacy names for [u]intX_t, like __int64"},
+    {TextAttribute::OUTPUT_THUNKS,
+     "Output [thunk]: in front of thunks"},
+    {TextAttribute::OUTPUT_EXTERN,
+     "Include extern \"C\" on names mangled(!) as extern \"C\""},
+    {TextAttribute::SPACE_AFTER_COMMA,
+     "Add a space after a comma"},
+    {TextAttribute::OUTPUT_ANONYMOUS_NUMBERS,
+     "Include namespace numbers in anonymous namespace outputs"},
+    {TextAttribute::SPACE_BETWEEN_TEMPLATE_BRACKETS,
+     "Output spaces between adjacent identical template brackets"},
+    {TextAttribute::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE,
+     "On templated user-defined conversion operators, put the templated before the type"},
+    {TextAttribute::MS_BROKEN_METHODTHUNK,
+     "Output extraneous }' on method thunks, to match undname.exe"},
+    {TextAttribute::DISCARD_CV_ON_RETURN_POINTER,
+     "Discard const on pointer return values"},
+    {TextAttribute::MS_BROKEN_STATIC_GUARD,
+     "Output extraneous ' on static guards, to match undname.exe"},
+    {TextAttribute::VERBOSE_CONSTANT_STRING,
+     "Include partial string content for constant string symbols"},
+    {TextAttribute::OUTPUT_NEAR,
+     "Include the near keyword on symbols marked as near"}
+  };
+
+  return names;
+}
+
 } // namespace demangle
 
 /* Local Variables:   */

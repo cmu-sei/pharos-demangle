@@ -27,6 +27,7 @@
 #include <string>
 #include <sstream>
 #include <cstdlib>
+#include <iomanip>
 #include <boost/format.hpp>
 
 #include <libdemangle/demangle.hpp>
@@ -40,6 +41,7 @@ namespace {
 using demangle::JsonOutput;
 using demangle::TextOutput;
 using demangle::TextAttributes;
+using demangle::TextAttribute;
 using json::wrapper::Builder;
 
 class Demangler {
@@ -224,6 +226,9 @@ int main(int argc, char **argv)
   opt.add_options()
     ("help,h",    "Display help")
     ("windows,w", "Try to match undname output as slavishly as possible")
+    ("attr,a", po::value<std::string>(),
+     "Output using the given attributes.  Use --list-attr to get a list")
+    ("list-attr", "Print list of output attributes")
     ("nosym,n",   "Only output the demangled name, not the symbol")
     ("nofile",    "Interpret arguments only as symbols, not at filenames")
     ("noerror",   "If a symbol fails to demangle, just output the mangled name")
@@ -283,14 +288,49 @@ int main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+  if (vm.count("list-attr")) {
+    std::cout << ("Attributes are hexadecimal numbers which represent bit-flags, which.\n"
+                  "can be OR'd together.  The list of flags are as follows:\n\n");
+    std::cout << std::hex << std::setfill('0');
+    for (auto & val : TextAttributes::explain()) {
+      std::cout << "0x" << std::setw(5) << uint64_t(val.first) << ' ' << val.second << '\n';
+    }
+    return EXIT_FAILURE;
+  }
+
   Demangler demangler;
   demangler.set_attributes(TextAttributes::pretty());
 
   if (vm.count("debug")) {
     demangler.set_debug(true);
   }
+  if (vm.count("windows") && vm.count("attr")) {
+    std::cerr << "Cannot use --windows and --attr options at the same time";
+    exit(EXIT_FAILURE);
+  }
   if (vm.count("windows")) {
     demangler.set_attributes(TextAttributes::undname());
+  }
+  if (vm.count("attr")) {
+    std::string val = vm["attr"].as<std::string>();
+    std::size_t pos;
+    bool err = false;
+    try {
+      auto num = std::stoull(val, &pos, 16);
+      if (pos != val.size()) {
+        err = true;
+      } else {
+        demangler.set_attributes(TextAttribute(num));
+      }
+    } catch (std::invalid_argument const &) {
+      err = true;
+    } catch (std::out_of_range const &) {
+      err = true;
+    }
+    if (err) {
+      std::cerr << "Could not parse attribute number" << std::endl;
+      return EXIT_FAILURE;
+    }
   }
   if (vm.count("nosym")) {
     demangler.set_nosym(true);
