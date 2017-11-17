@@ -61,17 +61,6 @@ std::string str(DemangledTypePtr const & p)
   return std::string();
 }
 
-// An alias to make it easier to construct namespace types.
-class Namespace : public DemangledType {
- public:
-  Namespace(std::string const & n) : DemangledType() {
-    is_namespace = true; simple_string = n;
-  }
-  Namespace(std::string && n) : DemangledType() {
-    is_namespace = true; simple_string = std::move(n);
-  }
-};
-
 class VisualStudioDemangler
 {
  private:
@@ -454,8 +443,8 @@ VisualStudioDemangler::get_pointer_type(DemangledTypePtr & t)
 
   if (handling_cli_array) {
     auto at = std::make_shared<DemangledType>();
-    at->name.push_back(std::make_shared<Namespace>("array"));
-    at->name.push_back(std::make_shared<Namespace>("cli"));
+    at->name.push_back(std::make_shared<DemangledType>("array"));
+    at->name.push_back(std::make_shared<DemangledType>("cli"));
     at->template_parameters.push_back(
       std::make_shared<DemangledTemplateParameter>(t->inner_type));
     if (handling_cli_array > 1) {
@@ -613,8 +602,8 @@ DemangledTypePtr VisualStudioDemangler::get_type(DemangledTypePtr t, bool push) 
         advance_to_next_char(); get_storage_class(t); get_type(t); break;
        case 'T':
         advance_to_next_char();
-        t->name.push_back(std::make_shared<Namespace>("nullptr_t"));
-        t->name.push_back(std::make_shared<Namespace>("std"));
+        t->name.push_back(std::make_shared<DemangledType>("nullptr_t"));
+        t->name.push_back(std::make_shared<DemangledType>("std"));
         break;
        case 'V':
        case 'Z':
@@ -1243,7 +1232,7 @@ DemangledTypePtr VisualStudioDemangler::resolve_reference(
   }
 
   // Even if our position was invalid kludge something up for debugging.
-  return std::make_shared<Namespace>(boost::str(boost::format("ref#%d") % stack_offset));
+  return std::make_shared<DemangledType>(boost::str(boost::format("ref#%d") % stack_offset));
 }
 
 DemangledTypePtr VisualStudioDemangler::add_templated_type(DemangledTypePtr & type)
@@ -1271,7 +1260,6 @@ DemangledTypePtr VisualStudioDemangler::add_templated_type(DemangledTypePtr & ty
   }
   else {
     templated_type = type->add_name(get_literal());
-    templated_type->is_namespace = true;
     save_name(templated_type);
   }
 
@@ -1400,7 +1388,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
             std::string numbered_namespace = boost::str(boost::format("`%d'") % number);
             if (debug) std::cerr << "Found numbered namespace: "
                                  << numbered_namespace << std::endl;
-            auto nns = std::make_shared<Namespace>(numbered_namespace);
+            auto nns = std::make_shared<DemangledType>(numbered_namespace);
             t->name.push_back(std::move(nns));
           }
         }
@@ -1412,7 +1400,7 @@ DemangledTypePtr & VisualStudioDemangler::get_fully_qualified_name(
       advance_to_next_char();
     }
     else {
-      auto ns = std::make_shared<Namespace>(get_literal());
+      auto ns = std::make_shared<DemangledType>(get_literal());
       t->name.push_back(ns);
       save_name(ns);
     }
@@ -1470,7 +1458,7 @@ DemangledTypePtr VisualStudioDemangler::get_anonymous_namespace() {
   // Advance past the '@' that terminated the literal.
   advance_to_next_char();
 
-  auto ans = std::make_shared<Namespace>(literal);
+  auto ans = std::make_shared<DemangledType>(literal);
   ans->is_anonymous = true;
   return std::move(ans);
 }

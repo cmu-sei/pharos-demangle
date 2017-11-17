@@ -217,7 +217,6 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   add_bool("is_func", sym.is_func);
   add_bool("is_based", sym.is_based);
   add_bool("is_member", sym.is_member);
-  add_bool("is_namespace", sym.is_namespace);
   add_bool("is_anonymous", sym.is_anonymous);
   add_bool("is_refref", sym.is_refref);
 

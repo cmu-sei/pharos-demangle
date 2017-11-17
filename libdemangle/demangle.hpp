@@ -138,10 +138,6 @@ class DemangledType {
   bool is_based = false;
   bool is_member = false;
 
-  // This really just means that we were a term in a fully qualified
-  // name.  We can't actually tell from the demangling whether we were
-  bool is_namespace = false;
-
   // True if the namespace is anonymous.  The simple_type string then contains the unique
   // identifier name that's not typically shown for anonymous namespaces.
   bool is_anonymous = false;
