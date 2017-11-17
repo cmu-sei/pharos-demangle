@@ -114,6 +114,11 @@ class Converter {
     : stream(s, a), t(dt)
   {}
   void operator()();
+
+  void class_name();
+  void method_name();
+  void method_signature();
+
  private:
   Converter sub(DemangledType const & dt) {
     return Converter(stream.attr, stream.stream, dt);
@@ -121,7 +126,8 @@ class Converter {
   void do_name(DemangledType const & n);
   void do_name(FullyQualifiedName const & name);
   void do_name(FullyQualifiedName::const_reverse_iterator b,
-               FullyQualifiedName::const_reverse_iterator e);
+               FullyQualifiedName::const_reverse_iterator e,
+               bool only_last = false);
   void do_template_params(DemangledTemplate const & tmpl);
   void do_template_param(DemangledTemplateParameter const & param);
   void do_args(FunctionArgs const & args);
@@ -309,11 +315,12 @@ void Converter::do_name(
 
 void Converter::do_name(
   FullyQualifiedName::const_reverse_iterator b,
-  FullyQualifiedName::const_reverse_iterator e)
+  FullyQualifiedName::const_reverse_iterator e,
+  bool only_last)
 {
   // Iterate over the name fragments
-  for (auto i = b; i != e; ++i) {
-    if (i != b) {
+  for (auto i = only_last ? std::prev(e) : b; i != e; ++i) {
+    if (!only_last && i != b) {
       stream << "::";
     }
     auto & frag = *i;
@@ -614,6 +621,35 @@ void Converter::do_storage_properties(
   if (!discard && ctx == BEFORE) cv();
 }
 
+void Converter::class_name()
+{
+  if (!t.name.empty()) {
+    do_name(t.name.rbegin(), std::prev(t.name.rend()));
+  }
+}
+
+void Converter::method_name()
+{
+  if (!t.name.empty()) {
+    auto rv = t.retval;
+    if (!rv) {
+      rv.reset(new DemangledType("void"));
+    }
+    auto save = tset(retval_, rv.get());
+    do_name(t.name.rbegin(), t.name.rend(), true);
+  }
+}
+
+void Converter::method_signature()
+{
+  auto rv = t.retval;
+  if (!rv) {
+    rv.reset(new DemangledType("void"));
+  }
+  auto save = tset(retval_, rv.get());
+  do_type(t, [this] { method_name(); });
+}
+
 } // namespace detail
 
 std::string TextOutput::convert(DemangledType const & sym) const
@@ -628,6 +664,26 @@ void TextOutput::convert_(std::ostream & stream, DemangledType const & sym) cons
   detail::Converter(attr, stream, sym)();
 }
 
+std::string TextOutput::get_class_name(DemangledType const & sym) const
+{
+  std::ostringstream os;
+  detail::Converter(attr, os, sym).class_name();
+  return os.str();
+}
+
+std::string TextOutput::get_method_name(DemangledType const & sym) const
+{
+  std::ostringstream os;
+  detail::Converter(attr, os, sym).method_name();
+  return os.str();
+}
+
+std::string TextOutput::get_method_signature(DemangledType const & sym) const
+{
+  std::ostringstream os;
+  detail::Converter(attr, os, sym).method_signature();
+  return os.str();
+}
 
 } // namespace demangle
 

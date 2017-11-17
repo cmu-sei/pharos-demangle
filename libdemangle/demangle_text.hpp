@@ -109,6 +109,7 @@ class TextOutput {
  public:
   TextOutput() = default;
   TextOutput(Attributes a) : attr(a) {}
+
   std::string convert(DemangledType const & sym) const;
 
   void set_attributes(Attributes a) {
@@ -140,6 +141,10 @@ class TextOutput {
   StreamApplyObject operator()(DemangledType const & sym) const {
     return StreamApplyObject(*this, sym);
   }
+
+  std::string get_class_name(DemangledType const & sym) const;
+  std::string get_method_name(DemangledType const & sym) const;
+  std::string get_method_signature(DemangledType const & sym) const;
 
  private:
   void convert_(std::ostream & stream, DemangledType const & sym) const;
