@@ -227,16 +227,15 @@ int main(int argc, char **argv)
     ("help,h",    "Display help")
     ("windows,w", "Try to match undname output")
     ("undname",   "Try to match undname output, including buggy output")
-    ("attr,a", po::value<std::string>(),
+    ("attr", po::value<std::string>(),
      "Output using the given attributes.  Use --list-attr to get a list")
     ("list-attr", "Print list of output attributes")
     ("nosym,n",   "Only output the demangled name, not the symbol")
     ("nofile",    "Interpret arguments only as symbols, not at filenames")
     ("noerror",   "If a symbol fails to demangle, just output the mangled name")
     ("debug,d",   "Output demangling debugging spew to stderr")
-    ("json,j",    "JSON output  ")
-    ("raw",       "Raw JSON output (mirrors contents of DemangledType class)")
-    ("minimal",   "Simplified JSON output")
+    ("json,j", po::value<std::string>(),
+     "JSON output (\"raw\" or \"minimal\"")
     ("batch",     "JSON objects are newline-separated, rather than in a list")
     ;
 
@@ -293,9 +292,11 @@ int main(int argc, char **argv)
   if (vm.count("list-attr")) {
     std::cout << ("Attributes are hexadecimal numbers which represent bit-flags, which.\n"
                   "can be OR'd together.  The list of flags are as follows:\n\n");
-    std::cout << std::hex << std::setfill('0');
+    std::cout << std::setfill(' ');
     for (auto & val : TextAttributes::explain()) {
-      std::cout << "0x" << std::setw(5) << uint64_t(val.first) << ' ' << val.second << '\n';
+      std::ostringstream os;
+      os << std::hex << "0x" << uint64_t(val.first);
+      std::cout << std::setw(10) << os.str() << ' ' << val.second << '\n';
     }
     return EXIT_FAILURE;
   }
@@ -345,22 +346,16 @@ int main(int argc, char **argv)
     demangler.set_noerror(true);
   }
   if (vm.count("json")) {
-    if (!vm.count("minimal") && !vm.count("raw")) {
-      std::cerr << "JSON requires one of --minimal or --raw" << std::endl;
+    demangler.set_json(true);
+    auto & val = vm["json"].as<std::string>();
+    if (val == "minimal") {
+      demangler.set_minimal(true);
+    } else if (val == "raw") {
+      demangler.set_raw(true);
+    } else {
+      std::cerr << "The --json value must be either \"raw\" or \"minimal\"" << std::endl;
       return EXIT_FAILURE;
     }
-    demangler.set_json(true);
-  }
-  if (vm.count("minimal")) {
-    if (vm.count("raw")) {
-      std::cerr << "JSON switches --minimal and --raw are conflicting options." << std::endl;
-      return EXIT_FAILURE;
-    }
-    demangler.set_json(true);
-    demangler.set_minimal(true);
-  } else if (vm.count("raw")) {
-    demangler.set_json(true);
-    demangler.set_raw(true);
   }
   if (vm.count("batch")) {
     demangler.set_batch(true);
