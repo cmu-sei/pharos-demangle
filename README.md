@@ -22,10 +22,49 @@ make
 make install
 ```
 
+## JSON output
+
+There are currently two JSON formats emitted by the command-line
+tool.  Raw and minimal.
+
+The minmal format is only really useful for functions and methods, and
+outputs the full type names for the argument and return value of these
+functions.  For other symbol types, it will duplicate the raw format.
+
+The raw format was originally written to help debug the demangler.  It
+is a direct JSON representation of the C++ structure that represents
+the demangled name.
+
+A user-friendly non-minimal JSON output schema has been worked on, but
+has not been completed.  (This is what `--json` without qualifiers is
+reserved for as a command-line argument.)  Figuring out a happy medium
+between the raw format and the minimal format is harder than one might
+think.
+
 ## Known deficiencies
 
 - C++/CLI symbols are very poorly supported due to both lack of
   references and lack of a reasonable test corpus
+
+## undname differences
+
+When comparing output to *undname.exe*, the pharos demangler differs
+in some important places:
+
+- Spacing may be different.
+- *undname.exe* sometimes omits `const` in places where that `const` is
+  definitely encoded in the symbol.  We've been able to determine that
+  constant pointers have the const elided when used as a return value.
+  Other circumstances exists, though, that we have not been able to
+  figure out.
+- In most places *undname.exe* outputs anonymous namespaces as
+  `` `anonymous namespace'``, but sometimes it fails and will output the
+  literal string in the mangled name representing the namespace, such
+  as ``A0xcfd685c9``.
+- There are some mangled names that *undname.exe* just fails
+  completely on that the Pharos demangler either succeeds on or "does
+  better."  Any undname result with a `?` or a `@` in it is considered
+  a failed result.
 
 ## State of the code
 
@@ -33,7 +72,8 @@ This code was written to support our own research goals.  It was
 hacked together in a short amount of time, and things were added when
 needed in a very ad-hoc fashion.  Although some time was spent
 cleaning up code for release, do not expect this to be the cleanest
-bit of code in the world.
+bit of code in the world.  In particular, the `DemangledType` data
+structure has accumulated members at need.
 
 ## References
 
