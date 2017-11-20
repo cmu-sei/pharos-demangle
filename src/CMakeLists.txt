@@ -25,3 +25,15 @@ find_package(Boost 1.60.0 REQUIRED COMPONENTS filesystem program_options)
 add_executable(demangle demangle.cpp)
 target_link_libraries(demangle libdemangle Boost::filesystem Boost::program_options)
 install(TARGETS demangle DESTINATION bin)
+
+set(POD_SRC "${CMAKE_CURRENT_SOURCE_DIR}/demangle.pod")
+set(POD_DEST "${CMAKE_CURRENT_BINARY_DIR}/demangle.1")
+add_custom_command(
+  OUTPUT "${POD_DEST}"
+  COMMAND pod2man --section=1 --release=Pharos --center="Pharos Tools"
+          "${POD_SRC}" "${POD_DEST}"
+  MAIN_DEPENDENCY "${POD_SRC}")
+add_custom_target(demangle_man ALL DEPENDS "${POD_DEST}")
+install(
+  FILES "${POD_DEST}"
+  DESTINATION share/man/man1)

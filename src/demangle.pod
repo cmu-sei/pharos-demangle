@@ -1,0 +1,237 @@
+=pod
+
+=head1 NAME
+
+B<demangler> - Demangle Visual C++ mangled names
+
+=head1 SYNOPSIS
+
+demangle [[-w|--windows] | --undname | --attr=I<ATTR_CODE>]
+         [-n|--nosym] [--nofile] [--noerror] [-d|--debug]
+         [-j|--json {I<raw>|I<minimal>}] [--batch]
+         [I<filename>|I<symbol>]...
+
+demangle --list-attr
+
+demangle [-h|--help]
+
+=head1 DESCRIPTION
+
+B<demangle> takes Visual C++ symbols as input and outputs their
+meaning in either textual C++ declaration form, or as a JSON
+structure.
+
+B<demangle> takes a list of symbols or filenames as arguments on the
+command line.  Filenames are treated as files of whitespace separated
+lists of symbols.  In normal mode it will output a one-line
+declaration for each symbol.  If a symbol cannot be parsed, the symbol
+will be returned instead, prepended with a C<!>, and with the parsing
+error appended.
+
+If no filenames or symbols are included on the command line, or if the
+special filename C<-> is used, input will be taken from stdin.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-w>, B<--windows>
+
+Attempt to output symbols that will match the output of
+B<undname.exe>.  This does not include replicating obvious errors from
+B<undname.exe>, and does not currently include identical spacing.
+
+This option conflicts with B<--undname> and B<--attr>.
+
+=item B<--undname>
+
+Identical to B<--windows>, but will attempt to replicate errors from
+B<undname.exe> in order to match as closely as possible.
+
+This option conflicts with B<--windows> and B<--attr>.
+
+=item B<--attr>=I<ATTR_CODE>
+
+Manually specifies the attributes used to output the declarations.
+The list of valid attributes can be listed using B<--list-attr>.  The
+I<ATTR_CODE> is a hexadecimal number that represents the OR-ed bits of
+the attributes.  The current list of attributes is:
+
+=over 4
+
+=item 0x1
+
+Add a space after any comma.
+
+=item 0x2
+
+Output spaces between adjacent identical template brackets.  For
+example, the space between the two C<E<gt>>s at the end of
+"std::pair<int, std::vector<int> >".
+
+=item 0x4
+
+Include partial string content for constant string symbols.  Without
+this attribute, symbols representing constant string data will be
+represented as C<`string'>.  With this attribute, it will be
+represented as a char or wchar_t array with the initial up-to-32
+characters included.
+
+=item 0x8
+
+When outputting a constructor or destructor of a class that has
+template parameters, duplicate those template parameters after the
+constructor.  For example:
+
+    std::pair<long, long>::pair<long, long><int, int>(std::pair<int, int>&&)
+
+=item 0x10
+
+On templated user-defined conversion operators, put the template
+before the type.  For example:
+
+    Foo::operator<int> int()
+
+=item 0x20
+
+Output the C<near> keyword on near pointers.
+
+=item 0x40
+
+Use Microsoft's legacy names for sized integer types.  For example,
+C<unsigned __int16> instead of C<uint16_t>.
+
+=item 0x80
+
+Output [thunk]: in front of thunks.
+
+=item 0x100
+
+Include extern "C" on names mangled(!) as extern "C".
+
+=item 0x200
+
+Include namespace numbers in anonymous namespace outputs.  For
+example:
+
+    `anonymous namespace 0x6d1e8564'
+
+=item 0x400
+
+Discard const on pointer return values.
+
+=item 0x800
+
+Output Microsoft type qualifiers (__restrict and __unaligned).
+
+=item 0x1000
+
+Output __ptr64.
+
+=item 0x80000000
+
+Include incorrect output that matches undname.exe when possible.
+
+=back
+
+=item B<-n>, B<--nosym>
+
+Do not include the original mangled symbol in the output of a
+successfully demangled symbol.
+
+=item B<--nofile>
+
+Do not attempt to interpret any name on the command line as a
+filename.
+
+=item B<--noerror>
+
+If a symbol fails to demangle, just output the original symbol with
+no error indication.
+
+=item B<-j> I<JSON_TYPE>, B<--json>=I<JSON_TYPE>
+
+Output JSON objects representing the contents of the mangled name.
+Valid values for I<JSON_TYPE> are C<raw> and C<minimal>.
+
+C<raw> outputs a fairly accurate representation of the internal data
+structure used to hold the demangled symbol's representation.
+
+C<minimal> is currently aimed at representing methods and functions
+only, and will contain simple string representations of names and
+types.  For non function/methods, it will revert to the C<raw> format.
+
+The JSON is output as an array of objects, one per symbol.  The output
+is in minimal machine-readable JSON with minimal spaces and no
+newlines, and should be piped through a pretty printer (such as
+B<python -m json.tool>) in order to be read by a human.
+
+=item B<--batch>
+
+When outputting JSON, output as individual sequential objects (with no
+surrounding array or interstitial commas) separated by newlines.  This
+is meant to support using B<demangle> as a query/answer server.
+
+=item B<-h>, B<--help>
+
+Print usage information to stdout and exit.
+
+=item B<-d>, B<--debug>
+
+Send symbol parsing debug output to stderr.
+
+=item B<--list-attr>
+
+Print a list of valid attributes to stdout and exit.  These attributes
+are single bit values that are meant to be OR-ed together and passed
+as a hexadecimal number as the argument to the B<--attr> option.
+
+=back
+
+=head1 RETURN VALUE
+
+Return 0 if all symbols parsed without error, -1 otherwise.
+
+=head1 CAVEATS
+
+The specification for the symbols that B<demangle> purports to handle
+is unknown to the authors.  Rather, it has been reverse engineered by
+various people on the Internet.  As such, the results are only as
+accurate as the authors have managed to make it, with no guarantees of
+success, or forwards or backwards compatibility.
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+
+NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
+INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
+UNIVERSITY MAKES NO WARRANTIES OF ANY KIND, EITHER EXPRESSED OR
+IMPLIED, AS TO ANY MATTER INCLUDING, BUT NOT LIMITED TO, WARRANTY OF
+FITNESS FOR PURPOSE OR MERCHANTABILITY, EXCLUSIVITY, OR RESULTS
+OBTAINED FROM USE OF THE MATERIAL. CARNEGIE MELLON UNIVERSITY DOES NOT
+MAKE ANY WARRANTY OF ANY KIND WITH RESPECT TO FREEDOM FROM PATENT,
+TRADEMARK, OR COPYRIGHT INFRINGEMENT.
+
+Released under a BSD-style license, please see license.txt or contact
+permission@sei.cmu.edu for full terms.
+
+[DISTRIBUTION STATEMENT A] This material has been approved for public
+release and unlimited distribution.  Please see Copyright notice for
+non-US Government use and distribution.
+
+DM17-0949
+
+=head1 SEE ALSO
+
+c++filt(1), Visual C++ name mangling
+(https://en.wikiversity.org/wiki/Visual_C%2B%2B_name_mangling),
+Calling conventions
+(http://www.agner.org/optimize/calling_conventions.pdf)
+
+=cut
+
+Local Variables:
+mode:text
+indent-tabs-mode:nil
+End:
