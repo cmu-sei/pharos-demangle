@@ -27,7 +27,7 @@ make install
 There are currently two JSON formats emitted by the command-line
 tool.  Raw and minimal.
 
-The minmal format is only really useful for functions and methods, and
+The minimal format is only really useful for functions and methods, and
 outputs the full type names for the argument and return value of these
 functions.  For other symbol types, it will duplicate the raw format.
 
