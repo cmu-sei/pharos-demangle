@@ -233,7 +233,8 @@ int main(int argc, char **argv)
     ("nofile",    "Interpret arguments only as symbols, not at filenames")
     ("noerror",   "If a symbol fails to demangle, just output the mangled name")
     ("debug,d",   "Output demangling debugging spew to stderr")
-    ("json,j",    "JSON output  (mirrors contents of DemangledType class)")
+    ("json,j",    "JSON output  ")
+    ("raw",       "Raw JSON output (mirrors contents of DemangledType class)")
     ("minimal",   "Simplified JSON output")
     ("batch",     "JSON objects are newline-separated, rather than in a list")
     ;
@@ -339,11 +340,21 @@ int main(int argc, char **argv)
     demangler.set_noerror(true);
   }
   if (vm.count("json")) {
+    if (!vm.count("minimal") && !vm.count("raw")) {
+      std::cerr << "JSON requires one of --minimal or --raw" << std::endl;
+      return EXIT_FAILURE;
+    }
     demangler.set_json(true);
   }
   if (vm.count("minimal")) {
+    if (vm.count("raw")) {
+      std::cerr << "JSON switches --minimal and --raw are conflicting options." << std::endl;
+      return EXIT_FAILURE;
+    }
+    demangler.set_json(true);
     demangler.set_minimal(true);
-  } else {
+  } else if (vm.count("raw")) {
+    demangler.set_json(true);
     demangler.set_raw(true);
   }
   if (vm.count("batch")) {
