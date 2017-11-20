@@ -632,12 +632,16 @@ void Converter::do_storage_properties(
   };
 
   if (!discard && ctx == AFTER) cv();
-  if (type.unaligned) stream << a << "__unaligned" << b;
+  if (type.unaligned && stream.attr[TextAttribute::MS_QUALIFIERS]) {
+    stream << a << "__unaligned" << b;
+  }
   if (type.is_pointer) stream << a << (type.is_gc ? '^' : '*') << b;
   if (type.is_reference) stream << a << (type.is_gc ? '%' : '&') << b;
   if (type.is_refref) stream << a << "&&" << b;
-  if (type.ptr64) stream << a << "__ptr64" << b;
-  if (type.restrict) stream << a << "__restrict" << b;
+  if (type.ptr64 && stream.attr[TextAttribute::OUTPUT_PTR64]) stream << a << "__ptr64" << b;
+  if (type.restrict && stream.attr[TextAttribute::MS_QUALIFIERS]) {
+    stream << a << "__restrict" << b;
+  }
   if (!discard && ctx == BEFORE) cv();
 }
 
@@ -731,6 +735,10 @@ TextAttributes::explain()
      "Include namespace numbers in anonymous namespace outputs"},
     {TextAttribute::DISCARD_CV_ON_RETURN_POINTER,
      "Discard const on pointer return values"},
+    {TextAttribute::MS_QUALIFIERS,
+     "Output Microsoft type qualifiers (__restrict, __unaligned)"},
+    {TextAttribute::OUTPUT_PTR64,
+     "Output __ptr64"},
     {TextAttribute::BROKEN_UNDNAME,
      "Include incorrect output that matches undname.exe when possible"},
   };

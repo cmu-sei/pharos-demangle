@@ -52,6 +52,10 @@ enum class TextAttribute : std::uint32_t {
   OUTPUT_ANONYMOUS_NUMBERS                     = 0x200,
   // undname discards cv on pointer return values
   DISCARD_CV_ON_RETURN_POINTER                 = 0x400,
+  // Output __restrict and __unaligned
+  MS_QUALIFIERS                                = 0x800,
+  // Output __ptr64
+  OUTPUT_PTR64                                 = 0x1000,
   // Broken but consistent behavior from undname.exe, for comparison purposes
   BROKEN_UNDNAME                               = 0x80000000,
 };
@@ -84,6 +88,8 @@ class TextAttributes {
     attr.set(TextAttribute::SPACE_BETWEEN_TEMPLATE_BRACKETS);
     attr.set(TextAttribute::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE);
     attr.set(TextAttribute::DISCARD_CV_ON_RETURN_POINTER);
+    attr.set(TextAttribute::MS_QUALIFIERS);
+    attr.set(TextAttribute::OUTPUT_PTR64);
     return attr;
   };
 
