@@ -225,7 +225,8 @@ int main(int argc, char **argv)
   po::options_description opt;
   opt.add_options()
     ("help,h",    "Display help")
-    ("windows,w", "Try to match undname output as slavishly as possible")
+    ("windows,w", "Try to match undname output")
+    ("undname",   "Try to match undname output, including buggy output")
     ("attr,a", po::value<std::string>(),
      "Output using the given attributes.  Use --list-attr to get a list")
     ("list-attr", "Print list of output attributes")
@@ -305,14 +306,18 @@ int main(int argc, char **argv)
   if (vm.count("debug")) {
     demangler.set_debug(true);
   }
-  if (vm.count("windows") && vm.count("attr")) {
-    std::cerr << "Cannot use --windows and --attr options at the same time";
+  if (vm.count("windows") + vm.count("attr") + vm.count("undname") > 1) {
+    std::cerr << "Cannot use --windows, --undname,  and --attr are conflicting options"
+              << std::endl;
     exit(EXIT_FAILURE);
   }
   if (vm.count("windows")) {
     demangler.set_attributes(TextAttributes::undname());
-  }
-  if (vm.count("attr")) {
+  } else if (vm.count("undname")) {
+    auto attr = TextAttributes::undname();
+    attr.set(TextAttribute::BROKEN_UNDNAME);
+    demangler.set_attributes(attr);
+  } else if (vm.count("attr")) {
     std::string val = vm["attr"].as<std::string>();
     std::size_t pos;
     bool err = false;

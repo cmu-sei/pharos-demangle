@@ -30,33 +30,30 @@
 namespace demangle {
 
 enum class TextAttribute : std::uint32_t {
-  // class template parameters on ctors and dtors
-  CDTOR_CLASS_TEMPLATE_PARAMETERS              = 0x01,
-  // Microsoft legacy names for [u]intX_t simple types
-  MS_SIMPLE_TYPES                              = 0x02,
-  // [thunk]: for thunks
-  OUTPUT_THUNKS                                = 0x04,
-  // extern "C"
-  OUTPUT_EXTERN                                = 0x08,
   // spaces after commas
-  SPACE_AFTER_COMMA                            = 0x10,
-  // Include anonymous namespace numbers
-  OUTPUT_ANONYMOUS_NUMBERS                     = 0x20,
+  SPACE_AFTER_COMMA                            = 0x1,
   // spaces for templates between << and >>
-  SPACE_BETWEEN_TEMPLATE_BRACKETS              = 0x40,
-  // template parameters come before (instead of after) the type in user-defined conversion
-  // operators
-  USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE = 0x80,
-  // undname outputs an extra " }'"
-  MS_BROKEN_METHODTHUNK                        = 0x100,
-  // undname discards cv on pointer return values
-  DISCARD_CV_ON_RETURN_POINTER                 = 0x200,
-  // undname adds extra apostrophe on static guards
-  MS_BROKEN_STATIC_GUARD                       = 0x400,
+  SPACE_BETWEEN_TEMPLATE_BRACKETS              = 0x2,
   // verbose constant string symbols
-  VERBOSE_CONSTANT_STRING                      = 0x800,
+  VERBOSE_CONSTANT_STRING                      = 0x4,
+  // class template parameters on ctors and dtors
+  CDTOR_CLASS_TEMPLATE_PARAMETERS              = 0x8,
+  // Microsoft legacy names for [u]intX_t simple types
+  USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE = 0x10,
   // Output near distances
-  OUTPUT_NEAR                                  = 0x1000,
+  OUTPUT_NEAR                                  = 0x20,
+  // undname outputs an extra " }'"
+  MS_SIMPLE_TYPES                              = 0x40,
+  // [thunk]: for thunks
+  OUTPUT_THUNKS                                = 0x80,
+  // extern "C"
+  OUTPUT_EXTERN                                = 0x100,
+  // Include anonymous namespace numbers
+  OUTPUT_ANONYMOUS_NUMBERS                     = 0x200,
+  // undname discards cv on pointer return values
+  DISCARD_CV_ON_RETURN_POINTER                 = 0x400,
+  // Broken but consistent behavior from undname.exe, for comparison purposes
+  BROKEN_UNDNAME                               = 0x80000000,
 };
 
 class TextAttributes {
@@ -86,9 +83,7 @@ class TextAttributes {
     attr.set(TextAttribute::MS_SIMPLE_TYPES);
     attr.set(TextAttribute::SPACE_BETWEEN_TEMPLATE_BRACKETS);
     attr.set(TextAttribute::USER_DEFINED_CONVERSION_TEMPLATE_BEFORE_TYPE);
-    attr.set(TextAttribute::MS_BROKEN_METHODTHUNK);
     attr.set(TextAttribute::DISCARD_CV_ON_RETURN_POINTER);
-    attr.set(TextAttribute::MS_BROKEN_STATIC_GUARD);
     return attr;
   };
 
