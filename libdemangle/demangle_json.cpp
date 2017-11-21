@@ -273,11 +273,12 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
     obj.add("retval", raw(*sym.retval));
   }
   add_list("args", sym.args);
-  if (sym.n1 || sym.n2 || sym.n3 || sym.n4) {
-    obj.add("n1", sym.n1);
-    obj.add("n2", sym.n2);
-    obj.add("n3", sym.n3);
-    obj.add("n4", sym.n4);
+  if (!sym.n.empty()) {
+    auto values = builder.array();
+    for (auto & n : sym.n) {
+      values->add(n);
+    }
+    obj.add("n", std::move(values));
   }
   add_bool("extern_c", sym.extern_c);
 

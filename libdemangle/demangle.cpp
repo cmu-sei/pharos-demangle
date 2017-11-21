@@ -821,7 +821,8 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
   t->inner_type = std::make_shared<DemangledType>();
   t->inner_type->simple_code = multibyte ? Code::CHAR16 : Code::CHAR;
   t->simple_string = "`string'";
-  t->n1 = multibyte ? (real_len / 2) : real_len;
+  t->n.reserve(1);
+  t->n.push_back(multibyte ? (real_len / 2) : real_len);
   t->is_pointer = true;
   t->add_name(std::move(result));
   return t;
@@ -847,10 +848,11 @@ DemangledTypePtr & VisualStudioDemangler::add_rtti(DemangledTypePtr & t) {
     {
       advance_to_next_char();
       auto n = t->add_name(Code::RTTI_BASE_CLASS_DESC);
-      n->n1 = get_number();
-      n->n2 = get_number();
-      n->n3 = get_number();
-      n->n4 = get_number();
+      n->n.reserve(4);
+      n->n.push_back(get_number());
+      n->n.push_back(get_number());
+      n->n.push_back(get_number());
+      n->n.push_back(get_number());
     }
     break;
    case '2':
@@ -1289,17 +1291,17 @@ DemangledTypePtr VisualStudioDemangler::add_templated_type(DemangledTypePtr & ty
         progress("constant function pointer template parameter");
         parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
         parameter->pointer = true;
-        parameter->type->n1 = get_number();
-        parameter->constant_value = 1;
+        parameter->type->n.reserve(1);
+        parameter->type->n.push_back(get_number());
         break;
        case 'I':
         advance_to_next_char();
         progress("constant member pointer template parameter");
         parameter = std::make_shared<DemangledTemplateParameter>(get_symbol());
         parameter->pointer = true;
-        parameter->type->n1 = get_number();
-        parameter->type->n2 = get_number();
-        parameter->constant_value = 2;
+        parameter->type->n.reserve(2);
+        parameter->type->n.push_back(get_number());
+        parameter->type->n.push_back(get_number());
         break;
        case 'S':
         // Empty non-type parameter pack.  Treat similar to $$V
@@ -1654,12 +1656,14 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
     return t;
    case SymbolType::VtorDisp:
     // Get the displacement, then treat as method
-    t->n1 = get_number();
+    t->n.reserve(2);
+    t->n.push_back(get_number());
     // Fall through
    case SymbolType::ClassMethod:
     if (t->method_property == MethodProperty::Thunk) {
       // get the thunk offset
-      t->n2 = get_number();
+      t->n.resize(1);
+      t->n.push_back(get_number());
     }
     // There's no storage class code for static class methods.
     if (t->method_property != MethodProperty::Static) {
@@ -1669,10 +1673,12 @@ DemangledTypePtr VisualStudioDemangler::get_symbol() {
    case SymbolType::GlobalFunction:
     return get_function(t);
    case SymbolType::StaticGuard:
-    t->n1 = get_number();
+    t->n.reserve(1);
+    t->n.push_back(get_number());
     return t;
    case SymbolType::MethodThunk:
-    t->n1 = get_number();
+    t->n.reserve(1);
+    t->n.push_back(get_number());
     switch (char c = get_current_char()) {
      case 'A': break; // Only known type: flat
      default: bad_code(c, "method thunk type");

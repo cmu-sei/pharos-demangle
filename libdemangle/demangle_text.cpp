@@ -261,7 +261,7 @@ void Converter::operator()()
     do_method_properties(t);
     stream << t.calling_convention << ' ';
     do_name(t);
-    stream << '{' << t.n1 << ",{flat}}'";
+    stream << '{' << t.n[0] << ",{flat}}'";
     if (stream.attr[TextAttribute::BROKEN_UNDNAME]) {
       // undname.exe ouputs an extra brace and quote
       stream << " }'";
@@ -289,7 +289,7 @@ void Converter::operator()()
    case SymbolType::StaticGuard:
     // Static variable guards
     do_name(t.name);
-    stream << '{' << t.n1 << '}';
+    stream << '{' << t.n[0] << '}';
     if (stream.attr[TextAttribute::BROKEN_UNDNAME]) {
       // undname.exe ouputs an extra quote
       stream << '\'';
@@ -301,9 +301,9 @@ void Converter::operator()()
       stream << "`string'";
     } else {
       do_type(*t.inner_type);
-      stream << '[' << t.n1 << "] = ";
+      stream << '[' << t.n[0] << "] = ";
       output_quoted_string(t.name[0]->simple_string);
-      if (t.n1 > 32) {
+      if (t.n[0] > 32) {
         stream << "...";
       }
     }
@@ -448,8 +448,8 @@ void Converter::do_name(
 
    case Code::RTTI_BASE_CLASS_DESC:
     stream << "`RTTI Base Class Descriptor at ("
-           << name.n1 << "," << name.n2 << ","
-           << name.n3 << "," << name.n4 << ")'";
+           << name.n[0] << "," << name.n[1] << ","
+           << name.n[2] << "," << name.n[3] << ")'";
     break;
 
    default:
@@ -463,14 +463,11 @@ void Converter::do_template_param(
   if (!p.type) {
     stream << p.constant_value;
   } else if (p.pointer) {
-    if (p.type->is_func && p.type->is_member && p.constant_value > 0) {
+    if (p.type->is_func && p.type->is_member && !p.type->n.empty()) {
       stream << '{';
       sub(*p.type)();
-      if (p.constant_value >= 1) {
-        stream << ',' << p.type->n1;
-      }
-      if (p.constant_value >= 2) {
-        stream << ',' << p.type->n2;
+      for (auto v : p.type->n) {
+        stream << ',' << v;
       }
       stream << '}';
     } else {
@@ -595,9 +592,9 @@ void Converter::do_function(
       }
       if (name) name();
       if (fn.symbol_type == SymbolType::VtorDisp) {
-        stream << "`vtordisp{" << fn.n1 << ',' << fn.n2 << "}' ";
-      } else if (fn.method_property == MethodProperty::Thunk && fn.n2) {
-        stream << "`adjustor{" << fn.n2 << "}' ";
+        stream << "`vtordisp{" << fn.n[0] << ',' << fn.n[1] << "}' ";
+      } else if (fn.method_property == MethodProperty::Thunk && fn.n.size() >= 2) {
+        stream << "`adjustor{" << fn.n[1] << "}' ";
       }
       do_args(fn.args);
       do_storage_properties(fn, AFTER);

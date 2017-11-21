@@ -214,10 +214,7 @@ class DemangledType {
   FunctionArgs args;
 
   // And then the really obscure values (like parameters for RTTI data structures).
-  int64_t n1 = 0;
-  int64_t n2 = 0;
-  int64_t n3 = 0;
-  int64_t n4 = 0;
+  std::vector<int64_t> n;
 
   // extern "C" (which shouldn't be mangled, but Microsoft)
   bool extern_c = false;
@@ -235,8 +232,8 @@ class DemangledType {
   DemangledType(Code code) : simple_code(code) {}
 
   template <typename... T>
-  DemangledTypePtr & add_name(T &&... n) {
-    name.push_back(std::make_shared<DemangledType>(std::forward<T>(n)...));
+  DemangledTypePtr & add_name(T &&... nm) {
+    name.push_back(std::make_shared<DemangledType>(std::forward<T>(nm)...));
     return name.back();
   }
 };
