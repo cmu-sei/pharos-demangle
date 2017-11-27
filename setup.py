@@ -13,18 +13,18 @@ import sys
 #  python3 setup.py bdist_rpm
 
 
-__version__ = '1.0'
+__version__ = '1.1'
 
 libraries = ['boost_python'] if sys.version_info[0] < 3 else ['boost_python3']
 libraries += ['boost_system','boost_filesystem','boost_program_options']
 
 pydemanglemodule = Extension("pydemangle",
                         define_macros = [('MAJOR_VERSION', '1'),
-                                     ('MINOR_VERSION', '0')],
+                                     ('MINOR_VERSION', '1')],
                         include_dirs = [os.path.join(os.getcwd(), 'libdemangle'), os.getcwd(),],
                         libraries = libraries,
                         library_dirs = [os.getcwd(),],
-                        sources = ['libdemangle/codes.cpp', 'libdemangle/json.cpp', 'libdemangle/demangle_json.cpp', 'libdemangle/demangle.cpp', 'src/pydemanglemodule.cpp'],
+                        sources = ['libdemangle/codes.cpp', 'libdemangle/json.cpp', 'libdemangle/demangle_json.cpp', 'libdemangle/demangle.cpp', 'libdemangle/demangle_text.cpp', 'src/pydemanglemodule.cpp'],
                         extra_compile_args=["-std=c++11", "-Wall", "-Wextra", "-Wshadow", "-Wstrict-aliasing"],
                         language='c++11')
 
