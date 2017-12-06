@@ -66,6 +66,25 @@ in some important places:
   better."  Any undname result with a `?` or a `@` in it is considered
   a failed result.
 
+## Python Bindings
+
+The Pharos Visual C++ Demangler may also be compiled as a python
+module. For either Python 2.7.x or Python 3.4+, from the
+top directory of the distribution:
+```
+python setup.py install
+```
+
+The demangler can now be called from within python scripts
+by using:
+```
+import pydemangler
+unmangled = pydemangler.demangle("??SomeMangledFunction")
+```
+
+The python module returns properties of the unmangled function
+as a python object (dictionary) rather than a JSON string.
+  
 ## State of the code
 
 This code was written to support our own research goals.  It was
