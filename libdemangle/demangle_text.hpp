@@ -1,4 +1,4 @@
-// Copyright 2017 Carnegie Mellon University.  See LICENSE file for terms.
+// Copyright 2017-2018 Carnegie Mellon University.  See LICENSE file for terms.
 // Pharos Demangler
 //
 // Copyright 2017 Carnegie Mellon University. All Rights Reserved.
@@ -56,6 +56,8 @@ enum class TextAttribute : std::uint32_t {
   MS_QUALIFIERS                                = 0x800,
   // Output __ptr64
   OUTPUT_PTR64                                 = 0x1000,
+  // Disable structure prefixes
+  DISABLE_PREFIXES                             = 0x2000,
   // Broken but consistent behavior from undname.exe, for comparison purposes
   BROKEN_UNDNAME                               = 0x80000000,
 };

@@ -1,6 +1,6 @@
 // Pharos Demangler
 //
-// Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+// Copyright 2017-2018 Carnegie Mellon University. All Rights Reserved.
 //
 // NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 // INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -424,7 +424,9 @@ void Converter::do_name(
     break;
 
    case Code::CLASS: case Code::STRUCT: case Code::UNION: case Code::ENUM:
-    stream << name.simple_code << ' ';
+    if (!stream.attr[TextAttribute::DISABLE_PREFIXES]) {
+      stream << name.simple_code << ' ';
+    }
     do_name(name.name);
     break;
 
@@ -736,6 +738,8 @@ TextAttributes::explain()
      "Output Microsoft type qualifiers (__restrict, __unaligned)"},
     {TextAttribute::OUTPUT_PTR64,
      "Output __ptr64"},
+    {TextAttribute::DISABLE_PREFIXES,
+     "Disable enum/class/struct/union prefixes"},
     {TextAttribute::BROKEN_UNDNAME,
      "Include incorrect output that matches undname.exe when possible"},
   };
