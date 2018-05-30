@@ -1,6 +1,6 @@
 // Pharos Demangler
 //
-// Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+// Copyright 2017-2018 Carnegie Mellon University. All Rights Reserved.
 //
 // NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 // INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -85,9 +85,9 @@ using DemangledTypePtr = std::shared_ptr<DemangledType>;
 // terms in a fully qualified name, and a stack of names or types for numbered references.
 // While the underlying types are identical in practice, I'm going to attempt to keep them
 // separate logically in case they ever need to diverge.
-typedef std::vector<DemangledTypePtr> FunctionArgs;
-typedef std::vector<DemangledTypePtr> FullyQualifiedName;
-typedef std::vector<DemangledTypePtr> ReferenceStack;
+using FunctionArgs       = std::vector<DemangledTypePtr>;
+using FullyQualifiedName = std::vector<DemangledTypePtr>;
+using ReferenceStack     = std::vector<DemangledTypePtr>;
 
 // The classes describing the demangled results are demangler independent, but strictly
 // speaking the boolean match" flag on the str() methods is specific to the Visual Studio
