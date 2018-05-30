@@ -1,6 +1,6 @@
 # Pharos Demangler
 #
-# Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+# Copyright 2017-2018 Carnegie Mellon University. All Rights Reserved.
 #
 # NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 # INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -21,8 +21,9 @@
 # DM17-0949
 
 cmake_minimum_required(VERSION 3.5)
+project(demangle VERSION 1.0 LANGUAGES CXX)
 
-project(demangle CXX)
+include(GNUInstallDirs)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -37,6 +38,8 @@ add_cxx_compiler_flags(-Wall -Wextra -Wshadow -Wstrict-aliasing)
 set(CMAKE_CXX_EXTENSIONS off)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
+
+set(BOOST_ROOT "" CACHE PATH "Where to look for Boost")
 
 add_subdirectory(libdemangle)
 add_subdirectory(src)
