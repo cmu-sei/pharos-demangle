@@ -282,13 +282,19 @@ JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
   }
   add_bool("extern_c", sym.extern_c);
 
-  return std::move(node);
+  return node;
 }
 
 JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
 {
   auto node = builder.object();
   auto & obj = *node;
+  
+  auto add_bool = [&obj, this](char const * name, bool val) {
+                    if (val) {
+                      obj.add(name, val);
+                    }
+                  };
 
   handle_symbol_type(obj, sym);
   handle_scope(obj, sym);
@@ -298,10 +304,10 @@ JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
                         obj.add(name, std::move(val));
                       }
                     };
-
+           
   if (sym.symbol_type == SymbolType::GlobalFunction
       || sym.symbol_type == SymbolType::ClassMethod)
-  {
+  {               
     if (!sym.calling_convention.empty()) {
       obj.add("calling_convention", sym.calling_convention);
     }
@@ -316,12 +322,19 @@ JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
     }
     obj.add("args", std::move(args));
     add_string("return_type", text.convert(*sym.retval));
-    obj.add("is_ctor", sym.is_ctor);
+    bool is_ctor = false;
+    bool is_dtor = false;
+    for (auto & part : sym.name) {
+        is_ctor |= part->is_ctor;
+        is_dtor |= part->is_dtor;
+    }
+    add_bool("is_ctor", is_ctor);
+    add_bool("is_dtor", is_dtor);    
   } else {
     return raw(sym);
   }
 
-  return std::move(node);
+  return node;
 }
 
 
