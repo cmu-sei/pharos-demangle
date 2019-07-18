@@ -13,14 +13,14 @@ import sys
 #  python3 setup.py bdist_rpm
 
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 libraries = ['boost_python'] if sys.version_info[0] < 3 else ['boost_python3']
 libraries += ['boost_system','boost_filesystem','boost_program_options']
 
 pydemanglemodule = Extension("pydemangle",
                         define_macros = [('MAJOR_VERSION', '1'),
-                                     ('MINOR_VERSION', '1')],
+                                     ('MINOR_VERSION', '2')],
                         include_dirs = [os.path.join(os.getcwd(), 'libdemangle'), os.getcwd(),],
                         libraries = libraries,
                         library_dirs = [os.getcwd(),],
