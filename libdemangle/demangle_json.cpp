@@ -316,6 +316,7 @@ JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
     }
     obj.add("args", std::move(args));
     add_string("return_type", text.convert(*sym.retval));
+    obj.add("is_ctor", sym.is_ctor);
   } else {
     return raw(sym);
   }
