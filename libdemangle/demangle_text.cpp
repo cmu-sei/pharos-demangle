@@ -1,6 +1,6 @@
 // Pharos Demangler
 //
-// Copyright 2017-2018 Carnegie Mellon University. All Rights Reserved.
+// Copyright 2017-2020 Carnegie Mellon University. All Rights Reserved.
 //
 // NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 // INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -315,11 +315,7 @@ void Converter::operator()()
    case SymbolType::Unspecified:
     // Guess based on contents
     if (t.instance_name.empty()) {
-      if (t.name.empty()) {
-        do_type(t);
-      } else {
-        do_type(t,  [this] { do_name(t); });
-      }
+      do_type(t);
     } else {
       do_type(t,  [this] { stream << ' '; do_name(t.instance_name); });
     }
