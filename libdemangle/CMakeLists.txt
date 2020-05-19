@@ -1,6 +1,6 @@
 # Pharos Demangler
 #
-# Copyright 2017-2018 Carnegie Mellon University. All Rights Reserved.
+# Copyright 2017-2020 Carnegie Mellon University. All Rights Reserved.
 #
 # NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 # INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -27,22 +27,21 @@ add_library(libdemangle SHARED demangle.cpp json.cpp demangle_json.cpp
 
 set_target_properties(libdemangle PROPERTIES
   CXX_STANDARD 11
-  OUTPUT_NAME demangle)
+  OUTPUT_NAME demangle
+  VERSION ${PROJECT_VERSION}
+  SOVERSION ${PROJECT_VERSION_MAJOR})
 
 target_include_directories(libdemangle INTERFACE
   $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
   PRIVATE ${Boost_INCLUDE_DIR})
 
-
 target_compile_features(libdemangle
   PUBLIC cxx_alias_templates cxx_strong_enums cxx_defaulted_functions cxx_rvalue_references
   PRIVATE cxx_lambdas)
 
-install(TARGETS libdemangle EXPORT libdemangle
+install(TARGETS libdemangle EXPORT DEMANGLE_EXPORT
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES demangle.hpp codes.hpp code_data.hpp DESTINATION include/libdemangle)
-install(EXPORT libdemangle DESTINATION lib/cmake/libdemangle)
-export(TARGETS libdemangle FILE libdemangle.cmake)

@@ -1,6 +1,6 @@
 # Pharos Demangler
 #
-# Copyright 2017-2018 Carnegie Mellon University. All Rights Reserved.
+# Copyright 2017-2020 Carnegie Mellon University. All Rights Reserved.
 #
 # NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 # INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -24,7 +24,7 @@ find_package(Boost 1.60.0 REQUIRED COMPONENTS filesystem program_options)
 
 add_executable(demangle demangle.cpp)
 target_link_libraries(demangle libdemangle Boost::filesystem Boost::program_options)
-install(TARGETS demangle DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS demangle EXPORT DEMANGLE_EXPORT DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 set(POD_SRC "${CMAKE_CURRENT_SOURCE_DIR}/demangle.pod")
 set(POD_DEST "${CMAKE_CURRENT_BINARY_DIR}/demangle.1")
