@@ -1,6 +1,6 @@
 // Pharos Demangler
 //
-// Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+// Copyright 2017-2020 Carnegie Mellon University. All Rights Reserved.
 //
 // NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 // INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -31,10 +31,9 @@ namespace demangle {
 
 class JsonOutput {
  public:
-  using Builder   = json::wrapper::Builder;
-  using Object    = json::wrapper::Object;
-  using ObjectRef = json::wrapper::ObjectRef;
-  using NodeRef   = json::wrapper::NodeRef;
+  using Builder   = json::Builder;
+  using Object    = json::Object;
+  using ObjectRef = json::ObjectRef;
 
  public:
   JsonOutput(Builder const & b) : builder(b) {}

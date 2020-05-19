@@ -42,7 +42,7 @@ using demangle::JsonOutput;
 using demangle::TextOutput;
 using demangle::TextAttributes;
 using demangle::TextAttribute;
-using json::wrapper::Builder;
+using json::Builder;
 
 class Demangler {
   TextAttributes attr;
