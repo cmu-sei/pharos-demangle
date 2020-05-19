@@ -1462,7 +1462,7 @@ DemangledTypePtr VisualStudioDemangler::get_anonymous_namespace() {
 
   auto ans = std::make_shared<DemangledType>(literal);
   ans->is_anonymous = true;
-  return std::move(ans);
+  return ans;
 }
 
 std::string VisualStudioDemangler::get_literal() {

@@ -165,7 +165,7 @@ JsonOutput::ObjectRef JsonOutput::convert(DemangledType const & sym) const
 
   obj.add("text", text.convert(sym));
 
-  return std::move(node);
+  return node;
 }
 
 JsonOutput::ObjectRef JsonOutput::raw(DemangledType const & sym) const
@@ -289,7 +289,7 @@ JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
 {
   auto node = builder.object();
   auto & obj = *node;
-  
+
   auto add_bool = [&obj, this](char const * name, bool val) {
                     if (val) {
                       obj.add(name, val);
@@ -304,10 +304,10 @@ JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
                         obj.add(name, std::move(val));
                       }
                     };
-           
+
   if (sym.symbol_type == SymbolType::GlobalFunction
       || sym.symbol_type == SymbolType::ClassMethod)
-  {               
+  {
     if (!sym.calling_convention.empty()) {
       obj.add("calling_convention", sym.calling_convention);
     }
@@ -329,7 +329,7 @@ JsonOutput::ObjectRef JsonOutput::minimal(DemangledType const & sym) const
         is_dtor |= part->is_dtor;
     }
     add_bool("is_ctor", is_ctor);
-    add_bool("is_dtor", is_dtor);    
+    add_bool("is_dtor", is_dtor);
   } else {
     return raw(sym);
   }
