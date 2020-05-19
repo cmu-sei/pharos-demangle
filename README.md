@@ -111,7 +111,7 @@ The information we used to create this program came from three primary sources:
 
 Pharos Demangler
 
-Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+Copyright 2017-2020 Carnegie Mellon University. All Rights Reserved.
 
 NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
