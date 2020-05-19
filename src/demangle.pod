@@ -8,7 +8,7 @@ B<demangler> - Demangle Visual C++ mangled names
 
 demangle [[-w|--windows] | --undname | --attr=I<ATTR_CODE>]
          [-n|--nosym] [--nofile] [--noerror] [-d|--debug]
-         [-j|--json {I<raw>|I<minimal>}] [--batch]
+         [-j|--json {I<raw>|I<minimal>}] [-p|--pretty] [--batch]
          [I<filename>|I<symbol>]...
 
 demangle --list-attr
@@ -162,9 +162,14 @@ only, and will contain simple string representations of names and
 types.  For non function/methods, it will revert to the C<raw> format.
 
 The JSON is output as an array of objects, one per symbol.  The output
-is in minimal machine-readable JSON with minimal spaces and no
-newlines, and should be piped through a pretty printer (such as
-B<python -m json.tool>) in order to be read by a human.
+is, by default, in minimal machine-readable JSON with minimal spaces
+and no newlines.  For human readable output, use the B<--pretty>
+option.
+
+=item B<-p>, B<--pretty>
+
+When outputting JSON, will output with indentation and newlines
+conducive to being read by a human.
 
 =item B<--batch>
 
@@ -202,7 +207,7 @@ success, or forwards or backwards compatibility.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+Copyright 2017-2020 Carnegie Mellon University. All Rights Reserved.
 
 NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON

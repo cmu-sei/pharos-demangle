@@ -1,6 +1,6 @@
 // Pharos Demangler
 //
-// Copyright 2017 Carnegie Mellon University. All Rights Reserved.
+// Copyright 2017-2020 Carnegie Mellon University. All Rights Reserved.
 //
 // NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE ENGINEERING
 // INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS" BASIS. CARNEGIE MELLON
@@ -33,6 +33,7 @@
 #include <libdemangle/demangle.hpp>
 #include <libdemangle/demangle_json.hpp>
 #include <libdemangle/demangle_text.hpp>
+#include <libdemangle/json.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
@@ -145,6 +146,7 @@ struct Driver {
   bool nofile = false;
   bool json = false;
   bool batch = false;
+  bool pretty = false;
   Demangler const & demangler;
   Driver(Demangler const & d) : demangler(d) {}
   bool demangle_file(std::istream & file);
@@ -177,6 +179,9 @@ bool Driver::demangle(std::string const & sym)
 bool Driver::run(std::vector<std::string> const & args)
 {
   first = true;
+  if (pretty) {
+    std::cout << json::pretty();
+  }
   if (json && !batch) {
     std::cout << '[';
   }
@@ -211,6 +216,9 @@ bool Driver::run(std::vector<std::string> const & args)
   }
   if (json & !batch) {
     std::cout << ']';
+    if (pretty) {
+      std::cout << std::endl;
+    }
   }
   return success;
 }
@@ -236,6 +244,7 @@ int main(int argc, char **argv)
     ("debug,d",   "Output demangling debugging spew to stderr")
     ("json,j", po::value<std::string>(),
      "JSON output (\"raw\" or \"minimal\"")
+    ("pretty,p",  "Output human-readable JSON if outputting JSON")
     ("batch",     "JSON objects are newline-separated, rather than in a list")
     ;
 
@@ -398,6 +407,7 @@ int main(int argc, char **argv)
   Driver driver(demangler);
   driver.nofile = vm.count("nofile");
   driver.json = vm.count("json");
+  driver.pretty = vm.count("pretty");
   driver.batch = vm.count("batch");
   bool success = driver.run(args);
 
