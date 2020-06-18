@@ -178,7 +178,7 @@ class Converter {
 };
 
 template <typename Stream>
-Stream operator<<(Stream stream, Scope scope) {
+Stream operator<<(Stream & stream, Scope scope) {
   switch (scope) {
    case Scope::Unspecified: break;
    case Scope::Private: return stream << "private: ";
@@ -189,7 +189,7 @@ Stream operator<<(Stream stream, Scope scope) {
 }
 
 template <typename Stream>
-Stream operator<<(Stream stream, Distance distance) {
+Stream operator<<(Stream & stream, Distance distance) {
   switch (distance) {
    case Distance::Unspecified: break;
    case Distance::Near: return stream << "near ";
