@@ -34,7 +34,11 @@
 
 // Perhaps we should eliminated the unused parameters (basically all match booleans to the
 // str_xxx functions).  Right now it's easier fo rthem all to match though...
+#ifdef __GNUC__
 #define UNUSED __attribute__((unused))
+#elif
+#define UNUSED /* */
+#endif
 
 namespace demangle {
 namespace detail {
