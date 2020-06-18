@@ -32,14 +32,6 @@
 #include "demangle.hpp"
 #include "demangle_text.hpp"
 
-// Perhaps we should eliminated the unused parameters (basically all match booleans to the
-// str_xxx functions).  Right now it's easier fo rthem all to match though...
-#ifdef __GNUC__
-#define UNUSED __attribute__((unused))
-#elif
-#define UNUSED /* */
-#endif
-
 namespace demangle {
 namespace detail {
 
@@ -773,7 +765,7 @@ DemangledTypePtr & VisualStudioDemangler::get_string(DemangledTypePtr & t) {
   advance_to_next_char();
   auto real_len = get_number();
   auto len = std::min(real_len, int64_t(multibyte ? 64 : 32));
-  UNUSED int64_t hash = get_number();
+  get_number();
   std::string result;
   for (int64_t i = 0; i < len; ++i) {
     char v;
