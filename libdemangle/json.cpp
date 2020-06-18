@@ -408,31 +408,31 @@ class Builder : public json::Builder
   using json::Builder::simple;
 
   NodeRef simple(json::Simple::integer i) const override {
-    return make_unique<Number<json::Simple::integer>>(i);
+    return json::make_unique<Number<json::Simple::integer>>(i);
   }
   NodeRef simple(json::Simple::uinteger i) const override {
-    return make_unique<Number<json::Simple::uinteger>>(i);
+    return json::make_unique<Number<json::Simple::uinteger>>(i);
   }
   NodeRef simple(double d) const override {
-    return make_unique<Number<double>>(d);
+    return json::make_unique<Number<double>>(d);
   }
   NodeRef simple(bool b) const override {
-    return make_unique<Bool>(b);
+    return json::make_unique<Bool>(b);
   }
   NodeRef null() const override {
-    return make_unique<Null>();
+    return json::make_unique<Null>();
   }
   NodeRef simple(std::string && s) const override {
-    return make_unique<String>(std::move(s));
+    return json::make_unique<String>(std::move(s));
   }
   NodeRef simple(std::string const & s) const override {
-    return make_unique<String>(s);
+    return json::make_unique<String>(s);
   }
   ArrayRef array() const override {
-    return make_unique<Array>();
+    return json::make_unique<Array>();
   }
   ObjectRef object() const override {
-    return make_unique<Object>();
+    return json::make_unique<Object>();
   }
 };
 
@@ -478,7 +478,7 @@ std::ostream & operator<<(std::ostream & stream, pretty const & p)
 
 BuilderRef simple_builder()
 {
-  return make_unique<simple::Builder>();
+  return json::make_unique<simple::Builder>();
 }
 
 } // namespace json
