@@ -380,7 +380,7 @@ int main(int argc, char **argv)
 
   // Argument verification
   bool dd = false;
-  bool stdin = false;
+  bool use_stdin = false;
   auto count = decltype(args)::size_type();
   for (auto & arg : args) {
     if (dd) {
@@ -388,11 +388,11 @@ int main(int argc, char **argv)
     } else if (arg == "--") {
       dd = true;
     } else if (arg == "-") {
-      if (stdin) {
+      if (use_stdin) {
         std::cerr << "The stdin file \"-\" can only be used once" << std::endl;
         return EXIT_FAILURE;
       }
-      stdin = true;
+      use_stdin = true;
       ++count;
     } else {
       ++count;
