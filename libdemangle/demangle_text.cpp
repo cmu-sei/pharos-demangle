@@ -62,11 +62,13 @@ class Converter {
     ConvStream & operator<<(T && x) {
       std::ostringstream os;
       os << std::forward<T>(x);
-      return (*this) << os.str();
+      (*this) << os.str();
+      return *this;
     }
 
     ConvStream & operator<<(std::string && x) {
-      return (*this) << const_cast<std::string const &>(x);
+      (*this) << const_cast<std::string const &>(x);
+      return *this;
     }
 
     static bool is_symbol_char(char c) {
@@ -178,23 +180,23 @@ class Converter {
 };
 
 template <typename Stream>
-Stream operator<<(Stream & stream, Scope scope) {
+Stream & operator<<(Stream & stream, Scope scope) {
   switch (scope) {
    case Scope::Unspecified: break;
-   case Scope::Private: return stream << "private: ";
-   case Scope::Protected: return stream << "protected: ";
-   case Scope::Public: return stream << "public: ";
+   case Scope::Private: stream << "private: "; break;
+   case Scope::Protected: stream << "protected: "; break;
+   case Scope::Public: stream << "public: "; break;
   }
   return stream;
 }
 
 template <typename Stream>
-Stream operator<<(Stream & stream, Distance distance) {
+Stream & operator<<(Stream & stream, Distance distance) {
   switch (distance) {
    case Distance::Unspecified: break;
-   case Distance::Near: return stream << "near ";
-   case Distance::Far: return stream << "far ";
-   case Distance::Huge: return stream << "huge ";
+   case Distance::Near: stream << "near "; break;
+   case Distance::Far: stream << "far "; break;
+   case Distance::Huge: stream << "huge "; break;
   }
   return stream;
 }
@@ -223,7 +225,7 @@ void Converter::do_method_properties(DemangledType const & m)
   {
     stream << "[thunk]: ";
   }
-  stream << m.scope;
+  stream.operator<<(m.scope); // written this way due to operator lookup ambiguity
   if (m.method_property == MethodProperty::Static) stream << "static ";
   if (m.method_property == MethodProperty::Virtual
       // Thunks are virtual
@@ -550,7 +552,7 @@ void Converter::do_type(
 {
   do_method_properties(type);
   if (type.distance != Distance::Near || stream.attr[TextAttribute::OUTPUT_NEAR]) {
-    stream << type.distance;
+    stream.operator<<(type.distance); // written this way due to operator lookup ambiguity
   }
   auto pname = name;
   if (type.is_array) {
