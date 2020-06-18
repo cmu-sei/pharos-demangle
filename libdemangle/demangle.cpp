@@ -60,7 +60,7 @@ std::string str(DemangledTypePtr const & p)
 class VisualStudioDemangler
 {
  private:
-  friend class save_stack;
+  friend struct save_stack;
 
   const std::string & mangled;
   bool debug;
